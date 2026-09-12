@@ -2,58 +2,149 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-function timeAgo(iso) {
+export function timeAgo(iso) {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return `${Math.floor(s)}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60) return `${Math.floor(s)}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
 }
 
+const GRID = { gridTemplateColumns: '92px 1.6fr 52px 60px 56px 50px 84px 84px 90px' };
+
 export default function Home() {
-  const [sets, setSets] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [sets, setSets] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [feed, setFeed] = useState([]);
+  const [positions, setPositions] = useState([]);
 
   async function load() {
-    const { data } = await supabase
-      .from('vamp_sets')
-      .select('id, display_name, ticker_norm, status, coin_count, last_coin_at, voting_opened_at, declared_at')
-      .in('status', ['voting', 'declared'])
-      .order('last_coin_at', { ascending: false })
-      .limit(60);
-    setSets(data ?? []);
-    setLoading(false);
+    const [{ data: s }, { data: f }, { data: p }] = await Promise.all([
+      supabase
+        .from('vamp_sets')
+        .select('id, display_name, ticker_norm, status, coin_count, last_coin_at, voting_opened_at, coins(mint, last_market_cap_sol, market_cap_sol_at_launch), votes(coin_mint)')
+        .in('status', ['voting', 'declared'])
+        .order('last_coin_at', { ascending: false })
+        .limit(40),
+      supabase
+        .from('coins')
+        .select('mint, symbol, name, launched_at, market_cap_sol_at_launch, vamp_sets(coin_count)')
+        .order('launched_at', { ascending: false })
+        .limit(14),
+      supabase
+        .from('paper_positions')
+        .select('coin_mint, pnl_pct, coins(symbol)')
+        .is('closed_at', null)
+        .limit(6),
+    ]);
+    setSets(s ?? []);
+    setFeed(f ?? []);
+    setPositions(p ?? []);
   }
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 10000); // poll; realtime channel can replace this later
+    const t = setInterval(load, 8000);
     return () => clearInterval(t);
   }, []);
 
+  const rows = (sets ?? [])
+    .filter((s) => (filter === 'all' ? true : s.status === filter))
+    .map((s) => {
+      const votes = s.votes?.length ?? 0;
+      const counts = {};
+      for (const v of s.votes ?? []) counts[v.coin_mint] = (counts[v.coin_mint] ?? 0) + 1;
+      const lead = votes ? Math.round((Math.max(...Object.values(counts)) / votes) * 100) : null;
+      // biggest coin's move since launch
+      let delta = null;
+      for (const c of s.coins ?? []) {
+        if (c.last_market_cap_sol != null && c.market_cap_sol_at_launch > 0) {
+          const d = ((c.last_market_cap_sol - c.market_cap_sol_at_launch) / c.market_cap_sol_at_launch) * 100;
+          if (delta === null || Math.abs(d) > Math.abs(delta)) delta = d;
+        }
+      }
+      const mcap = Math.max(...(s.coins ?? []).map((c) => Number(c.last_market_cap_sol ?? c.market_cap_sol_at_launch ?? 0)), 0);
+      return { ...s, votes, lead, delta, mcap };
+    });
+
+  const voting = (sets ?? []).filter((s) => s.status === 'voting').length;
+  const declared = (sets ?? []).filter((s) => s.status === 'declared').length;
+
   return (
-    <>
-      <h1 className="page">Live vamp sets</h1>
-      <p className="sub">
-        Copycat launches ("vamps") clustered around one narrative. Vote for the coin
-        you think is the real runner. Early correct votes earn the most points.
-      </p>
-      {loading && <p className="meta">Loading…</p>}
-      {!loading && sets.length === 0 && (
-        <p className="meta">No active vamp sets right now. The stream refreshes automatically.</p>
-      )}
-      <div className="grid">
-        {sets.map((s) => (
-          <Link key={s.id} to={`/set/${s.id}`} className="card">
-            <span className={`pill ${s.status}`}>{s.status === 'voting' ? 'voting open' : 'runner declared'}</span>
-            <h3>{s.display_name}</h3>
-            <div className="ticker">${s.ticker_norm}</div>
-            <div className="meta">
-              {s.coin_count} coins in cluster · last launch {timeAgo(s.last_coin_at)}
+    <div className="wrap">
+      <div className="main">
+        <div className="section-head">
+          <h2>LIVE VAMP SETS</h2>
+          <span className="count">{voting} VOTING · {declared} DECLARED</span>
+          <div className="spacer" />
+          <div className="chips">
+            <button className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>ALL</button>
+            <button className={filter === 'voting' ? 'on' : ''} onClick={() => setFilter('voting')}>VOTING</button>
+            <button className={filter === 'declared' ? 'on' : ''} onClick={() => setFilter('declared')}>DECLARED</button>
+          </div>
+        </div>
+
+        <div className="thead" style={GRID}>
+          <div>TICKER</div><div>NARRATIVE</div><div className="r">COINS</div><div className="r">VOTES</div>
+          <div className="r">LEAD</div><div className="r">AGE</div><div className="r">MCAP SOL</div><div className="r">Δ LAUNCH</div><div className="r">STATUS</div>
+        </div>
+
+        {sets === null && <p className="sub mono" style={{ padding: 16 }}>LOADING…</p>}
+        {sets !== null && rows.length === 0 && (
+          <p className="sub" style={{ padding: 16 }}>No live sets right now. New clusters form as copycats launch, usually within minutes.</p>
+        )}
+        {rows.map((s) => (
+          <Link key={s.id} to={`/set/${s.id}`} className="trow" style={GRID}>
+            <div className={`tick ${s.status === 'declared' ? 'won' : ''}`}>${s.ticker_norm}</div>
+            <div className="name">{s.display_name}</div>
+            <div className="r">{s.coin_count}</div>
+            <div className="r">{s.votes}</div>
+            <div className={`r m-hide ${s.status === 'declared' ? 'gold' : 'up'}`}>{s.status === 'declared' ? 'WON' : s.lead != null ? `${s.lead}%` : '—'}</div>
+            <div className="r m-hide" style={{ color: 'var(--dim)' }}>{timeAgo(s.last_coin_at)}</div>
+            <div className="r m-hide">{s.mcap ? s.mcap.toFixed(1) : '—'}</div>
+            <div className={`r m-hide ${s.delta == null ? '' : s.delta >= 0 ? 'up' : 'down'}`}>
+              {s.delta == null ? '—' : `${s.delta >= 0 ? '+' : ''}${s.delta.toFixed(1)}%`}
             </div>
+            <div className="r"><span className={`chip ${s.status}`}>{s.status === 'declared' ? 'DECLARED' : 'VOTING'}</span></div>
           </Link>
         ))}
+
+        <div className="foot">
+          VAMP IS A SIMULATION GAME · THE TREASURY IS PAPER MONEY · NO REAL TRADING OCCURS ON THIS SITE · NOT FINANCIAL ADVICE
+        </div>
       </div>
-    </>
+
+      <aside className="rail">
+        <div className="rail-head">
+          <span className="dot" />
+          <h3>LAUNCH FEED</h3>
+          <span className="src">PUMP.FUN · LIVE</span>
+        </div>
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          {feed.map((c) => (
+            <div key={c.mint} className="feed-row">
+              <span className="t">{new Date(c.launched_at).toLocaleTimeString([], { hour12: false })}</span>
+              <span className="s">${c.symbol}</span>
+              <span className="n">{c.name}</span>
+              {c.vamp_sets?.coin_count >= 2
+                ? <span className="chip voting">SET +{c.vamp_sets.coin_count}</span>
+                : <span className="t">{c.market_cap_sol_at_launch != null ? Number(c.market_cap_sol_at_launch).toFixed(1) : ''}</span>}
+            </div>
+          ))}
+        </div>
+        <div className="rail-block">
+          <h4>OPEN PAPER POSITIONS</h4>
+          {positions.length === 0 && <div className="kv"><span style={{ color: 'var(--dim2)' }}>NONE OPEN</span></div>}
+          {positions.map((p) => (
+            <div key={p.coin_mint} className="kv">
+              <span>${p.coins?.symbol}</span>
+              <span className={Number(p.pnl_pct) >= 0 ? 'up' : 'down'}>
+                {Number(p.pnl_pct) >= 0 ? '+' : ''}{Number(p.pnl_pct ?? 0).toFixed(1)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </aside>
+    </div>
   );
 }

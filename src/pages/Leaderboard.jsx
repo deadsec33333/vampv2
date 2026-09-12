@@ -3,30 +3,26 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { seasonKey, nextSeasonStart, countdownText } from '../lib/season';
 
+const GRID = { gridTemplateColumns: '52px 1.4fr 110px 80px' };
+
 export default function Leaderboard() {
   const { session } = useAuth();
-  const [rows, setRows] = useState([]);
+  const [rows, setRows] = useState(null);
   const [pastSeasons, setPastSeasons] = useState([]);
+  const [recruiters, setRecruiters] = useState([]);
   const [countdown, setCountdown] = useState(countdownText(nextSeasonStart()));
   const key = seasonKey();
 
   useEffect(() => {
     async function load() {
-      const [{ data: lb }, { data: past }] = await Promise.all([
-        supabase
-          .from('season_leaderboard')
-          .select('*')
-          .eq('season_key', key)
-          .order('points', { ascending: false })
-          .limit(50),
-        supabase
-          .from('seasons')
-          .select('*')
-          .order('key', { ascending: false })
-          .limit(10),
+      const [{ data: lb }, { data: past }, { data: rec }] = await Promise.all([
+        supabase.from('season_leaderboard').select('*').eq('season_key', key).order('points', { ascending: false }).limit(50),
+        supabase.from('seasons').select('*').order('key', { ascending: false }).limit(6),
+        supabase.from('referral_leaderboard').select('*').order('verified_referrals', { ascending: false }).limit(3),
       ]);
       setRows(lb ?? []);
       setPastSeasons(past ?? []);
+      setRecruiters(rec ?? []);
     }
     load();
     const t = setInterval(load, 20000);
@@ -34,68 +30,69 @@ export default function Leaderboard() {
     return () => { clearInterval(t); clearInterval(c); };
   }, [key]);
 
-  const myRow = session ? rows.find((r) => r.profile_id === session.user.id) : null;
+  const list = rows ?? [];
+  const myRow = session ? list.find((r) => r.profile_id === session.user.id) : null;
 
   return (
-    <>
-      <h1 className="page">Season {key}</h1>
-      <p className="sub">
-        Points come from settled treasury positions: back the runner early and share
-        its PnL, back a dud and pay for it. Resets in <b>{countdown}</b>. Points are
-        in-game only, worth nothing outside the leaderboard (for now).
-      </p>
-
-      {myRow && (
-        <p className="sub">
-          You: <b>{Number(myRow.points).toFixed(1)} pts</b> (rank {rows.indexOf(myRow) + 1})
-        </p>
-      )}
-
-      {rows.length === 0 && (
-        <p className="meta">
-          No settled positions this season yet. Points appear after the treasury
-          closes its first position (it holds for 24h after a declaration).
-        </p>
-      )}
-      {rows.length > 0 && (
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>#</th><th>Player</th><th>Points</th><th>Winning picks</th></tr></thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.profile_id}>
-                  <td>{i + 1}</td>
-                  <td>{r.username}</td>
-                  <td className={Number(r.points) >= 0 ? 'pnl-pos' : 'pnl-neg'}>
-                    {Number(r.points).toFixed(1)}
-                  </td>
-                  <td>{r.winning_picks}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <div className="wrap">
+      <div className="main">
+        <div className="section-head">
+          <h2>SEASON {key}</h2>
+          <span className="chip declared">RESETS IN {countdown}</span>
+          {myRow && (
+            <span className="count">
+              YOU: <b style={{ color: Number(myRow.points) >= 0 ? 'var(--green)' : 'var(--red)' }}>{Number(myRow.points).toFixed(1)} PTS</b> · RANK {list.indexOf(myRow) + 1}
+            </span>
+          )}
         </div>
-      )}
 
-      {pastSeasons.length > 0 && (
-        <>
-          <h1 className="page">Hall of runners</h1>
-          <div className="tbl-wrap">
-            <table className="tbl">
-              <thead><tr><th>Season</th><th>Winner</th><th>Points</th></tr></thead>
-              <tbody>
-                {pastSeasons.map((s) => (
-                  <tr key={s.key}>
-                    <td>{s.key}</td>
-                    <td>{s.winner_username ?? '—'}</td>
-                    <td>{s.winner_points != null ? Number(s.winner_points).toFixed(1) : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="thead" style={GRID}>
+          <div>RANK</div><div>PLAYER</div><div className="r">POINTS</div><div className="r">WINS</div>
+        </div>
+        {rows === null && <p className="sub mono" style={{ padding: 16 }}>LOADING…</p>}
+        {rows !== null && list.length === 0 && (
+          <p className="sub" style={{ padding: 16 }}>
+            No settled positions this season yet. Points land after the treasury closes its first position (24h hold after declaration).
+          </p>
+        )}
+        {list.map((r, i) => (
+          <div key={r.profile_id} className="trow" style={GRID}>
+            <div className={i < 3 ? `rank-${i + 1}` : ''} style={i >= 3 ? { color: 'var(--dim2)' } : {}}>
+              {String(i + 1).padStart(2, '0')}
+            </div>
+            <div className="name" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>{r.username}</div>
+            <div className={`r ${Number(r.points) >= 0 ? 'up' : 'down'}`}>{Number(r.points).toFixed(1)}</div>
+            <div className="r">{r.winning_picks}</div>
           </div>
-        </>
-      )}
-    </>
+        ))}
+        <div className="foot">
+          POINTS HAVE NO MONETARY VALUE · WEEKLY RESET MONDAY 00:00 UTC · SEASON WINNERS RECORDED FOREVER
+        </div>
+      </div>
+
+      <aside className="rail">
+        <div className="rail-head"><h3>HALL OF RUNNERS</h3></div>
+        <div style={{ padding: '0 16px' }}>
+          {pastSeasons.length === 0 && <div className="kv"><span style={{ color: 'var(--dim2)' }}>FIRST SEASON IN PROGRESS</span></div>}
+          {pastSeasons.map((s) => (
+            <div key={s.key} className="panel" style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 8, fontFamily: 'IBM Plex Mono, monospace', fontSize: 11 }}>
+              <span style={{ color: 'var(--dim)' }}>{s.key}</span>
+              <span>{s.winner_username ?? '—'}</span>
+              <span className="gold">{s.winner_points != null ? Number(s.winner_points).toFixed(0) : ''}</span>
+            </div>
+          ))}
+        </div>
+        <div className="rail-block">
+          <h4>TOP RECRUITERS</h4>
+          {recruiters.length === 0 && <div className="kv"><span style={{ color: 'var(--dim2)' }}>NOBODY RECRUITED YET</span></div>}
+          {recruiters.map((r) => (
+            <div key={r.profile_id} className="kv"><span>{r.username}</span><span>{r.verified_referrals} VERIFIED</span></div>
+          ))}
+          <p className="fine" style={{ color: 'var(--dim)', fontSize: 12, marginTop: 10, marginBottom: 0, lineHeight: 1.5 }}>
+            Only verified humans who cast at least one vote count. Bots stay in the coffin.
+          </p>
+        </div>
+      </aside>
+    </div>
   );
 }

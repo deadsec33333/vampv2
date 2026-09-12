@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 
+const GRID = { gridTemplateColumns: '52px 1.4fr 150px' };
+
 export default function Referral({ onNeedLogin }) {
   const { session, profile } = useAuth();
   const [rows, setRows] = useState([]);
@@ -26,51 +28,45 @@ export default function Referral({ onNeedLogin }) {
       await navigator.clipboard.writeText(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard blocked: user can select the text manually
-    }
+    } catch { /* user can select the text manually */ }
   }
 
   return (
-    <>
-      <h1 className="page">Recruit degens</h1>
-      <p className="sub">
-        Your invite link counts only verified humans who actually voted at least
-        once. Bots don't climb this board.
-      </p>
-
-      {!session && (
-        <p className="meta">
-          <button className="btn small" onClick={onNeedLogin}>Connect wallet</button>
-          {'  '}to get your invite link.
+    <div className="wrap">
+      <div className="main">
+        <h1 className="page">RECRUIT DEGENS</h1>
+        <p className="sub">
+          Your invite link counts only verified humans who actually voted at least once. Bots don't climb this board.
         </p>
-      )}
-      {session && profile && (
-        <div className="coin-row">
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div className="name">Your link</div>
-            <div className="mint">{link}</div>
-          </div>
-          <button className="btn small" onClick={copy}>{copied ? 'Copied ✔' : 'Copy'}</button>
-        </div>
-      )}
 
-      <h1 className="page">Referral leaderboard</h1>
-      {rows.length === 0 && <p className="meta">Nobody recruited anyone yet. The board is wide open.</p>}
-      {rows.length > 0 && (
-        <div className="tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>#</th><th>Recruiter</th><th>Verified humans who voted</th></tr></thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.profile_id}>
-                  <td>{i + 1}</td><td>{r.username}</td><td>{r.verified_referrals}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="pad" style={{ marginBottom: 8 }}>
+          {!session && <button className="btn" onClick={onNeedLogin}>CONNECT WALLET FOR YOUR LINK</button>}
+          {session && profile && (
+            <div className="panel" style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div className="mono" style={{ fontSize: 10, color: 'var(--dim2)', letterSpacing: '0.12em' }}>YOUR LINK</div>
+                <div className="mono" style={{ fontSize: 12, marginTop: 6, wordBreak: 'break-all' }}>{link}</div>
+              </div>
+              <button className="btn small" onClick={copy}>{copied ? 'COPIED' : 'COPY'}</button>
+            </div>
+          )}
         </div>
-      )}
-    </>
+
+        <div className="thead" style={GRID}>
+          <div>RANK</div><div>RECRUITER</div><div className="r">VERIFIED VOTERS</div>
+        </div>
+        {rows.length === 0 && <p className="sub" style={{ padding: 16 }}>Nobody recruited anyone yet. The board is wide open.</p>}
+        {rows.map((r, i) => (
+          <div key={r.profile_id} className="trow" style={GRID}>
+            <div className={i < 3 ? `rank-${i + 1}` : ''} style={i >= 3 ? { color: 'var(--dim2)' } : {}}>{String(i + 1).padStart(2, '0')}</div>
+            <div className="name" style={{ fontFamily: 'IBM Plex Mono, monospace' }}>{r.username}</div>
+            <div className="r">{r.verified_referrals}</div>
+          </div>
+        ))}
+        <div className="foot">
+          A RECRUIT COUNTS AFTER THEY VERIFY AS HUMAN AND CAST A VOTE
+        </div>
+      </div>
+    </div>
   );
 }
