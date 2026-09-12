@@ -78,7 +78,7 @@ export default function App() {
       </div>
       <div className="app">
         <header className="nav">
-          <NavLink to="/" className="logo">VAMP<span>.game</span></NavLink>
+          <NavLink to="/" className="logo">VAMP<span>.</span></NavLink>
           <nav className="links">
             <NavLink to="/">Live sets</NavLink>
             <NavLink to="/treasury">Treasury</NavLink>
@@ -107,7 +107,7 @@ export default function App() {
         <footer className="foot">
           VAMP is a game about spotting the original coin among copycat launches.
           All positions shown are simulated paper positions recorded at real market
-          prices — no real funds are ever moved, held, or traded by this site.
+          prices. No real funds are ever moved, held, or traded by this site.
           Market data is read-only. Points have no monetary value.
         </footer>
       </div>

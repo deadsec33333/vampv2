@@ -36,7 +36,7 @@ export default function Home() {
       <h1 className="page">Live vamp sets</h1>
       <p className="sub">
         Copycat launches ("vamps") clustered around one narrative. Vote for the coin
-        you think is the real runner — early correct votes earn the most points.
+        you think is the real runner. Early correct votes earn the most points.
       </p>
       {loading && <p className="meta">Loading…</p>}
       {!loading && sets.length === 0 && (
