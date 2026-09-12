@@ -22,13 +22,13 @@ export default function Home() {
     const [{ data: s }, { data: f }, { data: p }] = await Promise.all([
       supabase
         .from('vamp_sets')
-        .select('id, display_name, ticker_norm, status, coin_count, last_coin_at, voting_opened_at, coins(mint, last_market_cap_sol, market_cap_sol_at_launch), votes(coin_mint)')
+        .select('id, display_name, ticker_norm, status, coin_count, last_coin_at, voting_opened_at, coins!coins_vamp_set_id_fkey(mint, last_market_cap_sol, market_cap_sol_at_launch), votes(coin_mint)')
         .in('status', ['voting', 'declared'])
         .order('last_coin_at', { ascending: false })
         .limit(40),
       supabase
         .from('coins')
-        .select('mint, symbol, name, launched_at, market_cap_sol_at_launch, vamp_sets(coin_count)')
+        .select('mint, symbol, name, launched_at, market_cap_sol_at_launch, vamp_sets!coins_vamp_set_id_fkey(coin_count)')
         .order('launched_at', { ascending: false })
         .limit(14),
       supabase
