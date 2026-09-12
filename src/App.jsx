@@ -9,6 +9,7 @@ import Treasury from './pages/Treasury';
 import Leaderboard from './pages/Leaderboard';
 import Referral from './pages/Referral';
 import Swipe from './pages/Swipe';
+import Rules from './pages/Rules';
 
 function LoginModal({ onClose }) {
   const { signInWithWallet, authError } = useAuth();
@@ -78,6 +79,7 @@ const icons = {
   swipe: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" strokeWidth="1.6"><rect x="5" y="2.5" width="10" height="15" rx="2" transform="rotate(-8 10 10)" /><path d="M13 6 L15.5 8.5" /></svg>,
   treasury: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" strokeWidth="1.6"><path d="M3 8 L10 3 L17 8" /><rect x="4.5" y="8" width="11" height="8.5" rx="1" /><path d="M8.5 12 H11.5" /></svg>,
   ranks: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" strokeWidth="1.6"><path d="M6 3 H14 V8 A4 4 0 0 1 6 8 Z" /><path d="M10 12 V15" /><path d="M7 17 H13" /><path d="M6 5 H3.5 V6.5 A2.5 2.5 0 0 0 6 9" /><path d="M14 5 H16.5 V6.5 A2.5 2.5 0 0 1 14 9" /></svg>,
+  rules: <svg width="20" height="20" viewBox="0 0 20 20" fill="none" strokeWidth="1.6"><path d="M4 3.5 H12 A2.5 2.5 0 0 1 14.5 6 V16.5 H6.5 A2.5 2.5 0 0 1 4 14 Z" /><path d="M14.5 16.5 A2 2 0 0 0 16.5 14.5 V5.5" /><path d="M7 7.5 H11.5" /><path d="M7 10.5 H11.5" /></svg>,
 };
 
 export default function App() {
@@ -143,6 +145,7 @@ export default function App() {
         <NavLink to="/treasury">TREASURY</NavLink>
         <NavLink to="/leaderboard">LEADERBOARD</NavLink>
         <NavLink to="/recruit">RECRUIT</NavLink>
+        <NavLink to="/rules">RULES</NavLink>
         <div className="spacer" />
         <span className="sim-chip">SIMULATION · PAPER MONEY ONLY</span>
       </nav>
@@ -154,6 +157,7 @@ export default function App() {
         <Route path="/treasury" element={<Treasury />} />
         <Route path="/leaderboard" element={<Leaderboard />} />
         <Route path="/recruit" element={<Referral onNeedLogin={() => setShowLogin(true)} />} />
+        <Route path="/rules" element={<Rules />} />
       </Routes>
 
       <nav className="bottomnav">
@@ -161,6 +165,7 @@ export default function App() {
         <NavLink to="/swipe">{icons.swipe}<span>SWIPE</span></NavLink>
         <NavLink to="/treasury">{icons.treasury}<span>TREASURY</span></NavLink>
         <NavLink to="/leaderboard">{icons.ranks}<span>RANKS</span></NavLink>
+        <NavLink to="/rules">{icons.rules}<span>RULES</span></NavLink>
       </nav>
 
       {showLogin && !session && <LoginModal onClose={() => setShowLogin(false)} />}
