@@ -231,3 +231,53 @@ footer.foot {
   .logo { font-size: 18px; }
   h1.page { margin-top: 30px; }
 }
+
+/* swipe mode */
+.swipe-stage {
+  position: relative;
+  max-width: 380px; height: 440px;
+  margin: 26px auto 0;
+}
+.swipe-card {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 28px;
+  padding: 30px;
+  cursor: grab; user-select: none; touch-action: none;
+  will-change: transform;
+}
+.swipe-card:active { cursor: grabbing; }
+.swipe-card.behind {
+  transform: scale(0.94) translateY(14px);
+  background: var(--surface);
+  z-index: -1;
+}
+.swipe-name { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; }
+.swipe-ticker { color: var(--red); font-weight: 700; font-family: 'SF Mono', ui-monospace, Menlo, monospace; margin-top: 6px; }
+.swipe-facts { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.swipe-facts > div { font-size: 15px; font-weight: 600; }
+.swipe-facts span { display: block; color: var(--dim-2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 3px; }
+.swipe-mint { margin-top: 26px; color: var(--dim-2); font-size: 10px; font-family: 'SF Mono', ui-monospace, Menlo, monospace; word-break: break-all; }
+.stamp {
+  position: absolute; top: 26px;
+  font-size: 22px; font-weight: 800; letter-spacing: 0.08em;
+  padding: 6px 16px; border-radius: 10px; border: 3px solid;
+  pointer-events: none;
+}
+.stamp.runner { left: 22px; color: var(--green); border-color: var(--green); transform: rotate(-12deg); }
+.stamp.vamp { right: 22px; color: var(--red); border-color: var(--red); transform: rotate(12deg); }
+.swipe-actions { display: flex; justify-content: center; gap: 22px; margin-top: 26px; }
+.swipe-btn {
+  width: 60px; height: 60px; border-radius: 50%;
+  font-size: 24px; cursor: pointer;
+  background: var(--surface-2); color: var(--text);
+  border: 1px solid var(--hairline);
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease);
+}
+.swipe-btn:hover { transform: scale(1.08); }
+.swipe-btn:disabled { opacity: 0.35; transform: none; }
+.swipe-btn.no:hover { background: rgba(255, 69, 58, 0.2); }
+.swipe-btn.yes { background: var(--red); border-color: transparent; }
+.swipe-btn.yes:hover { background: var(--red-deep); }

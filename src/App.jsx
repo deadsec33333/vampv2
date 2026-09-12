@@ -8,6 +8,7 @@ import SetDetail from './pages/SetDetail';
 import Treasury from './pages/Treasury';
 import Leaderboard from './pages/Leaderboard';
 import Referral from './pages/Referral';
+import Swipe from './pages/Swipe';
 
 function LoginModal({ onClose }) {
   const { signInWithWallet, authError } = useAuth();
@@ -81,6 +82,7 @@ export default function App() {
           <NavLink to="/" className="logo">VAMP<span>.</span></NavLink>
           <nav className="links">
             <NavLink to="/">Live sets</NavLink>
+            <NavLink to="/swipe">Swipe</NavLink>
             <NavLink to="/treasury">Treasury</NavLink>
             <NavLink to="/leaderboard">Leaderboard</NavLink>
             <NavLink to="/recruit">Recruit</NavLink>
@@ -99,6 +101,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/set/:id" element={<SetDetail onNeedLogin={() => setShowLogin(true)} />} />
+          <Route path="/swipe" element={<Swipe onNeedLogin={() => setShowLogin(true)} />} />
           <Route path="/treasury" element={<Treasury />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/recruit" element={<Referral onNeedLogin={() => setShowLogin(true)} />} />
