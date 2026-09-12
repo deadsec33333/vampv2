@@ -32,7 +32,7 @@ export default function Treasury() {
           <table className="tbl">
             <thead>
               <tr>
-                <th>Coin</th><th>Vamp set</th><th>Entry mcap (SOL)</th>
+                <th>Status</th><th>Coin</th><th>Vamp set</th><th>Entry mcap (SOL)</th>
                 <th>Now (SOL)</th><th>PnL</th><th>Size (paper SOL)</th><th>Opened</th>
               </tr>
             </thead>
@@ -41,6 +41,11 @@ export default function Treasury() {
                 const pnl = p.pnl_pct ?? 0;
                 return (
                   <tr key={p.id}>
+                    <td>
+                      <span className={`pill ${p.closed_at ? 'closed' : 'declared'}`}>
+                        {p.closed_at ? 'settled' : 'open'}
+                      </span>
+                    </td>
                     <td>{p.coins?.name} <span className="ticker">{p.coins?.symbol}</span></td>
                     <td>{p.vamp_sets?.display_name}</td>
                     <td>{Number(p.entry_market_cap_sol).toFixed(1)}</td>

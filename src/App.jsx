@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Routes, Route, NavLink } from 'react-router-dom';
+import { supabase } from './lib/supabase';
 import { useAuth } from './lib/auth';
 import Turnstile from './lib/Turnstile';
 import Home from './pages/Home';
 import SetDetail from './pages/SetDetail';
 import Treasury from './pages/Treasury';
 import Leaderboard from './pages/Leaderboard';
+import Referral from './pages/Referral';
 
 function LoginModal({ onClose }) {
   const { signInWithWallet, authError } = useAuth();
@@ -43,8 +45,30 @@ function LoginModal({ onClose }) {
 }
 
 export default function App() {
-  const { session, profile, signOut } = useAuth();
+  const { session, profile, signOut, refreshProfile } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
+
+  // capture ?ref=CODE from invite links; claim it after login
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref) {
+      try { localStorage.setItem('vamp_ref', ref); } catch {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session || !profile || profile.referred_by) return;
+    let code = null;
+    try { code = localStorage.getItem('vamp_ref'); } catch {}
+    if (!code) return;
+    supabase.rpc('claim_referral', { code }).then(({ data }) => {
+      if (data) {
+        try { localStorage.removeItem('vamp_ref'); } catch {}
+        refreshProfile();
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, profile?.id]);
 
   return (
     <>
@@ -59,6 +83,7 @@ export default function App() {
             <NavLink to="/">Live sets</NavLink>
             <NavLink to="/treasury">Treasury</NavLink>
             <NavLink to="/leaderboard">Leaderboard</NavLink>
+            <NavLink to="/recruit">Recruit</NavLink>
           </nav>
           <div className="spacer" />
           {session ? (
@@ -76,6 +101,7 @@ export default function App() {
           <Route path="/set/:id" element={<SetDetail onNeedLogin={() => setShowLogin(true)} />} />
           <Route path="/treasury" element={<Treasury />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/recruit" element={<Referral onNeedLogin={() => setShowLogin(true)} />} />
         </Routes>
 
         <footer className="foot">

@@ -66,4 +66,3 @@ raise to e.g. 100 for production), `paper_size_sol`, `season_length_days`.
 - Database: `profiles`, `votes`, `paper_positions`, `game_config` plus the
   step-1 `vamp_sets` / `coins`. RLS: public read, writes only through the
   edge function / service role.
-# vampv2

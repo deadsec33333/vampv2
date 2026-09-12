@@ -107,6 +107,9 @@ export default function SetDetail({ onNeedLogin }) {
               <div className="mint">{c.mint}</div>
               <div className="meta">
                 launched {new Date(c.launched_at).toLocaleTimeString()} · matched by {c.match_rule} ({c.match_score})
+                {c.last_market_cap_sol != null && (
+                  <> · mcap now {Number(c.last_market_cap_sol).toFixed(1)} SOL</>
+                )}
               </div>
             </div>
             <div className="meta">{n} votes ({pct}%)</div>
