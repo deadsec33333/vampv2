@@ -31,11 +31,21 @@ export default function Home() {
   const [positions, setPositions] = useState([]);
 
   async function load() {
-    const [{ data: s }, { data: f }, { data: p }] = await Promise.all([
+    const SET_FIELDS = 'id, display_name, ticker_norm, status, chain, coin_count, last_coin_at, voting_opened_at, coins!coins_vamp_set_id_fkey(mint, last_market_cap_sol, market_cap_sol_at_launch), votes(coin_mint)';
+    const [{ data: s }, { data: rh }, { data: f }, { data: p }] = await Promise.all([
       supabase
         .from('vamp_sets')
-        .select('id, display_name, ticker_norm, status, chain, coin_count, last_coin_at, voting_opened_at, coins!coins_vamp_set_id_fkey(mint, last_market_cap_sol, market_cap_sol_at_launch), votes(coin_mint)')
+        .select(SET_FIELDS)
         .in('status', ['voting', 'declared'])
+        .order('last_coin_at', { ascending: false })
+        .limit(40),
+      // Robinhood Chain is low-volume: show its lone "watching" coins too,
+      // so the RH tab breathes while copycats brew
+      supabase
+        .from('vamp_sets')
+        .select(SET_FIELDS)
+        .eq('chain', 'robinhood')
+        .in('status', ['watching', 'voting', 'declared'])
         .order('last_coin_at', { ascending: false })
         .limit(40),
       supabase
@@ -49,7 +59,8 @@ export default function Home() {
         .is('closed_at', null)
         .limit(6),
     ]);
-    setSets(s ?? []);
+    const ids = new Set((s ?? []).map((x) => x.id));
+    setSets([...(s ?? []), ...(rh ?? []).filter((x) => !ids.has(x.id))]);
     setFeed(f ?? []);
     setPositions(p ?? []);
   }
@@ -125,7 +136,11 @@ export default function Home() {
             <div className={`r m-hide ${s.delta == null ? '' : s.delta >= 0 ? 'up' : 'down'}`}>
               {s.delta == null ? '—' : `${s.delta >= 0 ? '+' : ''}${s.delta.toFixed(1)}%`}
             </div>
-            <div className="r"><span className={`chip ${s.status}`}>{s.status === 'declared' ? 'DECLARED' : 'VOTING'}</span></div>
+            <div className="r">
+              <span className={`chip ${s.status === 'watching' ? 'muted' : s.status}`}>
+                {s.status === 'declared' ? 'DECLARED' : s.status === 'watching' ? 'WATCHING' : 'VOTING'}
+              </span>
+            </div>
           </Link>
         ))}
 
