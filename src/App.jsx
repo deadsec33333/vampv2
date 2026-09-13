@@ -60,12 +60,14 @@ function useTopStats() {
       let pnl = 0;
       for (const p of positions ?? []) pnl += (Number(p.paper_size_sol) || 0) * ((Number(p.pnl_pct) || 0) / 100);
       let sol = null;
+      let eth = null;
       try {
-        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true');
+        const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana,ethereum&vs_currencies=usd&include_24hr_change=true');
         const j = await r.json();
         sol = j?.solana ? { usd: j.solana.usd, chg: j.solana.usd_24h_change } : null;
-      } catch { /* stat hidden when unreachable */ }
-      if (!dead) setStats({ launchesPerMin: launches != null ? (launches / 10).toFixed(1) : null, activeSets, pnl, sol });
+        eth = j?.ethereum ? { usd: j.ethereum.usd, chg: j.ethereum.usd_24h_change } : null;
+      } catch { /* stats hidden when unreachable */ }
+      if (!dead) setStats({ launchesPerMin: launches != null ? (launches / 10).toFixed(1) : null, activeSets, pnl, sol, eth });
     }
     load();
     const t = setInterval(load, 30000);
@@ -118,6 +120,11 @@ export default function App() {
           {stats.sol && (
             <div><span className="k">SOL/USD </span>{stats.sol.usd.toFixed(2)}{' '}
               <span className={stats.sol.chg >= 0 ? 'up' : 'down'}>{stats.sol.chg >= 0 ? '+' : ''}{stats.sol.chg.toFixed(1)}%</span>
+            </div>
+          )}
+          {stats.eth && (
+            <div><span className="k">ETH/USD </span>{stats.eth.usd.toFixed(0)}{' '}
+              <span className={stats.eth.chg >= 0 ? 'up' : 'down'}>{stats.eth.chg >= 0 ? '+' : ''}{stats.eth.chg.toFixed(1)}%</span>
             </div>
           )}
           {stats.launchesPerMin != null && <div><span className="k">LAUNCHES/MIN </span>{stats.launchesPerMin}</div>}
