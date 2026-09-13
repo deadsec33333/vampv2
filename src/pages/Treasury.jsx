@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { fmtCap } from './Home';
 
 const GRID = { gridTemplateColumns: '80px 110px 1.4fr 80px 80px 80px 64px 130px' };
 
@@ -10,7 +11,7 @@ export default function Treasury() {
     async function load() {
       const { data } = await supabase
         .from('paper_positions')
-        .select('*, coins(name, symbol), vamp_sets(display_name, ticker_norm)')
+        .select('*, coins(name, symbol, chain), vamp_sets(display_name, ticker_norm)')
         .order('entry_at', { ascending: false })
         .limit(100);
       setPositions(data ?? []);
@@ -69,8 +70,8 @@ export default function Treasury() {
               <div><span className={`chip ${p.closed_at ? 'muted' : 'voting'}`}>{p.closed_at ? 'SETTLED' : 'OPEN'}</span></div>
               <div className="tick">${p.coins?.symbol}</div>
               <div className="name">{p.vamp_sets?.display_name}</div>
-              <div className="r m-hide">{Number(p.entry_market_cap_sol).toFixed(1)}</div>
-              <div className="r m-hide">{p.current_market_cap_sol != null ? Number(p.current_market_cap_sol).toFixed(1) : '—'}</div>
+              <div className="r m-hide">{fmtCap(p.coins?.chain ?? 'solana', p.entry_market_cap_sol)}</div>
+              <div className="r m-hide">{fmtCap(p.coins?.chain ?? 'solana', p.current_market_cap_sol)}</div>
               <div className={`r ${pnl >= 0 ? 'up' : 'down'}`}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%</div>
               <div className="r m-hide">{Number(p.paper_size_sol).toFixed(0)}</div>
               <div className="r m-hide" style={{ color: 'var(--dim)' }}>

@@ -52,8 +52,9 @@ export default function Rules() {
             </Section>
 
             <Section num="02" title="HOW COINS GET CLUSTERED">
-              A collector listens to pump.fun's public launch stream (read-only market data) and
-              matches every new coin against sets from the last 6 hours using three rules:{' '}
+              A collector listens to public launch streams (read-only market data) on two chains:
+              pump.fun on Solana and hood.fun-style launchpads on Robinhood Chain. Every new coin
+              is matched against its own chain's sets from the last 6 hours using three rules:{' '}
               <Mono>same normalized ticker</Mono> ($pNut2 and PNUT2 are the same),{' '}
               <Mono>same base ticker + similar name</Mono> (PNUT20 joins PNUT2), and{' '}
               <Mono>near-identical names</Mono> even with different tickers (McDonald's Cat,

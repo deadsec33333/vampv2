@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import Turnstile from '../lib/Turnstile';
-import { timeAgo } from './Home';
+import { timeAgo, fmtCap } from './Home';
 
 export default function SetDetail({ onNeedLogin }) {
   const { id } = useParams();
@@ -87,6 +87,7 @@ export default function SetDetail({ onNeedLogin }) {
     <>
       <div className="set-head">
         <div className="big-tick">${set.ticker_norm}</div>
+        {(set.chain ?? 'solana') === 'robinhood' && <span className="chip muted">ROBINHOOD CHAIN</span>}
         <div>
           <h1>{set.display_name} cluster</h1>
           <div className="sub">
@@ -130,7 +131,7 @@ export default function SetDetail({ onNeedLogin }) {
                   <div className="facts">
                     <div><span className="k">AGE </span>{timeAgo(c.launched_at)}</div>
                     <div><span className="k">DEV BUY </span>{c.initial_buy_sol != null ? `${Number(c.initial_buy_sol).toFixed(2)} SOL` : '—'}</div>
-                    <div><span className="k">MCAP </span>{mcap != null ? `${Number(mcap).toFixed(1)} SOL` : '—'}</div>
+                    <div><span className="k">MCAP </span>{fmtCap(set.chain ?? 'solana', mcap)}{(set.chain ?? 'solana') === 'solana' && mcap != null ? ' SOL' : ''}</div>
                     {delta != null && (
                       <div><span className="k">Δ LAUNCH </span>
                         <span className={delta >= 0 ? 'up' : 'down'}>{delta >= 0 ? '+' : ''}{delta.toFixed(1)}%</span>
