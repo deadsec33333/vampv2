@@ -145,7 +145,7 @@ export default function Home() {
         ))}
 
         <div className="foot">
-          VAMP IS A SIMULATION GAME · THE TREASURY IS PAPER MONEY · NO REAL TRADING OCCURS ON THIS SITE · NOT FINANCIAL ADVICE
+          VAMP IS A SIMULATION GAME · NO REAL TRADING OCCURS ON THIS SITE · NOT FINANCIAL ADVICE
         </div>
       </div>
 

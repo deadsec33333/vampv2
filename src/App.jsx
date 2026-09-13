@@ -52,13 +52,10 @@ function useTopStats() {
     let dead = false;
     async function load() {
       const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const [{ count: launches }, { count: activeSets }, { data: positions }] = await Promise.all([
+      const [{ count: launches }, { count: activeSets }] = await Promise.all([
         supabase.from('coins').select('mint', { count: 'exact', head: true }).gte('launched_at', tenMinAgo),
         supabase.from('vamp_sets').select('id', { count: 'exact', head: true }).eq('status', 'voting'),
-        supabase.from('paper_positions').select('paper_size_sol, pnl_pct').limit(500),
       ]);
-      let pnl = 0;
-      for (const p of positions ?? []) pnl += (Number(p.paper_size_sol) || 0) * ((Number(p.pnl_pct) || 0) / 100);
       let sol = null;
       let eth = null;
       try {
@@ -67,7 +64,7 @@ function useTopStats() {
         sol = j?.solana ? { usd: j.solana.usd, chg: j.solana.usd_24h_change } : null;
         eth = j?.ethereum ? { usd: j.ethereum.usd, chg: j.ethereum.usd_24h_change } : null;
       } catch { /* stats hidden when unreachable */ }
-      if (!dead) setStats({ launchesPerMin: launches != null ? (launches / 10).toFixed(1) : null, activeSets, pnl, sol, eth });
+      if (!dead) setStats({ launchesPerMin: launches != null ? (launches / 10).toFixed(1) : null, activeSets, sol, eth });
     }
     load();
     const t = setInterval(load, 30000);
@@ -129,11 +126,6 @@ export default function App() {
           )}
           {stats.launchesPerMin != null && <div><span className="k">LAUNCHES/MIN </span>{stats.launchesPerMin}</div>}
           {stats.activeSets != null && <div><span className="k">ACTIVE SETS </span>{stats.activeSets}</div>}
-          {stats.pnl != null && (
-            <div><span className="k">PAPER PNL </span>
-              <span className={stats.pnl >= 0 ? 'up' : 'down'}>{stats.pnl >= 0 ? '+' : ''}{stats.pnl.toFixed(1)} SOL</span>
-            </div>
-          )}
         </div>
         <div className="spacer" />
         {session ? (
@@ -153,8 +145,6 @@ export default function App() {
         <NavLink to="/leaderboard">LEADERBOARD</NavLink>
         <NavLink to="/recruit">RECRUIT</NavLink>
         <NavLink to="/rules">RULES</NavLink>
-        <div className="spacer" />
-        <span className="sim-chip">SIMULATION · PAPER MONEY ONLY</span>
       </nav>
 
       <Routes>
