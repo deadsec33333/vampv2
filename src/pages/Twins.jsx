@@ -334,7 +334,7 @@ export default function Twins() {
       }
       const dedup = [...byTick.values()].sort((a, b) => Number(isLive(b)) - Number(isLive(a)) || actScore(b) - actScore(a));
       setPairs(dedup);
-      const ids = dedup.filter(isLive).flatMap((t) => [t.sol_id, t.rh_id]);
+      const ids = dedup.slice(0, 3).flatMap((t) => [t.sol_id, t.rh_id]);
       if (ids.length) {
         const { data: coins } = await supabase
           .from('coins')
@@ -397,14 +397,8 @@ export default function Twins() {
             the pair appears here.
           </p>
         )}
-        {pairs !== null && pairs.length > 0 && !pairs.some(isLive) && (
-          <p className="sub" style={{ padding: '4px 16px' }}>
-            No twin is fully live at this moment — the pairs below exist on both chains but are
-            waiting for real trading to pick up. The second one wakes up, it gets the full live view.
-          </p>
-        )}
 
-        {(pairs ?? []).filter(isLive).slice(0, 6).map((t) => {
+        {(pairs ?? []).slice(0, 3).map((t) => {
           const sol = leads[t.sol_id];
           const rh = leads[t.rh_id];
           const solMcapUsd = sol && solUsd ? sol.mcap * solUsd : null;
@@ -418,6 +412,7 @@ export default function Twins() {
               <div className="twin-title mono">
                 <span className="gold big">${fmtTick(t.ticker_norm)}</span>
                 <span className="nm">{fmtName(t.sol_name)}</span>
+                <span className={`chip ${isLive(t) ? 'live' : 'muted'}`}>{isLive(t) ? 'LIVE' : 'DORMANT'}</span>
                 <span className={`chip ${t.sol_status === 'declared' ? 'declared' : t.sol_status === 'voting' ? 'voting' : 'muted'}`}>SOL {t.sol_status.toUpperCase()}</span>
                 <span className={`chip ${t.rh_status === 'declared' ? 'declared' : t.rh_status === 'voting' ? 'voting' : 'muted'}`}>RH {t.rh_status.toUpperCase()}</span>
               </div>
@@ -469,14 +464,14 @@ export default function Twins() {
           );
         })}
 
-        {(pairs ?? []).some((t) => !isLive(t)) && (
+        {(pairs ?? []).length > 3 && (
           <div className="twin-dormant">
             <div className="section-head" style={{ paddingLeft: 0, paddingRight: 0 }}>
               <h2>DORMANT TWINS</h2>
-              <span className="count">ON BOTH CHAINS · WAITING FOR TRADES</span>
+              <span className="count">MORE PAIRS ON BOTH CHAINS</span>
             </div>
             <div className="mono">
-              {(pairs ?? []).filter((t) => !isLive(t)).slice(0, 10).map((t) => {
+              {(pairs ?? []).slice(3, 13).map((t) => {
                 const act = actScore(t);
                 return (
                   <div key={`${t.sol_id}-${t.rh_id}`} className="dorm-row">

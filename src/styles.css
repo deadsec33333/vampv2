@@ -442,3 +442,4 @@ p.sub b { color: var(--text); }
 .dorm-row .side:hover { color: var(--text); }
 .dorm-row .side.gold { color: var(--gold); opacity: 0.75; }
 .dorm-row .age { color: var(--dim2); font-size: 10px; }
+.chip.live { background: rgba(22,199,132,0.12); color: var(--green); }
