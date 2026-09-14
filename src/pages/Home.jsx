@@ -29,6 +29,7 @@ export default function Home() {
   const [chainFilter, setChainFilter] = useState('all');
   const [feed, setFeed] = useState([]);
   const [positions, setPositions] = useState([]);
+  const [spotlight, setSpotlight] = useState(null);
 
   async function load() {
     const SET_FIELDS = 'id, display_name, ticker_norm, status, chain, coin_count, last_coin_at, voting_opened_at, coins!coins_vamp_set_id_fkey(mint, last_market_cap_sol, market_cap_sol_at_launch), votes(coin_mint)';
@@ -59,6 +60,14 @@ export default function Home() {
         .is('closed_at', null)
         .limit(6),
     ]);
+    const { data: spot } = await supabase
+      .from('auctions')
+      .select('winner_username, winning_bid, spotlight_until, vamp_sets(id, display_name, ticker_norm, status, chain)')
+      .eq('status', 'settled')
+      .gt('spotlight_until', new Date().toISOString())
+      .order('spotlight_until', { ascending: false })
+      .limit(1);
+    setSpotlight(spot?.[0] ?? null);
     const ids = new Set((s ?? []).map((x) => x.id));
     setSets([...(s ?? []), ...(rh ?? []).filter((x) => !ids.has(x.id))]);
     setFeed(f ?? []);
@@ -112,6 +121,18 @@ export default function Home() {
             <button className={filter === 'declared' ? 'on' : ''} onClick={() => setFilter('declared')}>DECLARED</button>
           </div>
         </div>
+
+        {spotlight?.vamp_sets && (
+          <Link to={`/set/${spotlight.vamp_sets.id}`} className="panel" style={{ margin: '0 16px 10px', display: 'flex', alignItems: 'center', gap: 14, borderColor: 'rgba(240,185,11,0.5)', flexWrap: 'wrap' }}>
+            <span className="chip declared">SPOTLIGHT</span>
+            <span className="mono" style={{ color: 'var(--gold)', fontWeight: 600 }}>${spotlight.vamp_sets.ticker_norm}</span>
+            <span style={{ fontWeight: 600 }}>{spotlight.vamp_sets.display_name}</span>
+            <div className="spacer" />
+            <span className="mono" style={{ fontSize: 10, color: 'var(--dim2)' }}>
+              PINNED BY {spotlight.winner_username?.toUpperCase()} · {Number(spotlight.winning_bid).toFixed(0)} PTS BURNED
+            </span>
+          </Link>
+        )}
 
         <div className="thead" style={GRID}>
           <div>TICKER</div><div>NARRATIVE</div><div className="r">COINS</div><div className="r">VOTES</div>

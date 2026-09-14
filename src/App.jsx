@@ -10,6 +10,9 @@ import Leaderboard from './pages/Leaderboard';
 import Referral from './pages/Referral';
 import Swipe from './pages/Swipe';
 import Rules from './pages/Rules';
+import Landing from './pages/Landing';
+import Twins from './pages/Twins';
+import Auction from './pages/Auction';
 
 function LoginModal({ onClose }) {
   const { signInWithWallet, authError } = useAuth();
@@ -151,8 +154,10 @@ export default function App() {
       </div>
 
       <nav className="tabs">
-        <NavLink to="/" end>TERMINAL</NavLink>
+        <NavLink to="/terminal">TERMINAL</NavLink>
         <NavLink to="/swipe">SWIPE</NavLink>
+        <NavLink to="/twins">TWINS</NavLink>
+        <NavLink to="/auction">AUCTION</NavLink>
         <NavLink to="/treasury">TREASURY</NavLink>
         <NavLink to="/leaderboard">LEADERBOARD</NavLink>
         <NavLink to="/recruit">RECRUIT</NavLink>
@@ -160,7 +165,10 @@ export default function App() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/terminal" element={<Home />} />
+        <Route path="/twins" element={<Twins />} />
+        <Route path="/auction" element={<Auction onNeedLogin={() => setShowLogin(true)} />} />
         <Route path="/set/:id" element={<SetDetail onNeedLogin={() => setShowLogin(true)} />} />
         <Route path="/swipe" element={<Swipe onNeedLogin={() => setShowLogin(true)} />} />
         <Route path="/treasury" element={<Treasury />} />
@@ -170,7 +178,7 @@ export default function App() {
       </Routes>
 
       <nav className="bottomnav">
-        <NavLink to="/" end>{icons.sets}<span>SETS</span></NavLink>
+        <NavLink to="/terminal">{icons.sets}<span>SETS</span></NavLink>
         <NavLink to="/swipe">{icons.swipe}<span>SWIPE</span></NavLink>
         <NavLink to="/treasury">{icons.treasury}<span>TREASURY</span></NavLink>
         <NavLink to="/leaderboard">{icons.ranks}<span>RANKS</span></NavLink>
