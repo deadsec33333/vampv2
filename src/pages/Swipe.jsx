@@ -18,13 +18,19 @@ export default function Swipe({ onNeedLogin }) {
   const [queue, setQueue] = useState(null); // [{ set, coins }]
   const [si, setSi] = useState(0);
   const [ci, setCi] = useState(0);
-  const [drag, setDrag] = useState({ x: 0, active: false });
   const [busy, setBusy] = useState(false);
   const [needTurnstile, setNeedTurnstile] = useState(false);
   const [tsToken, setTsToken] = useState(null);
   const [error, setError] = useState(null);
   const [declared, setDeclared] = useState(null);
+
+  const cardRef = useRef(null);
+  const runnerRef = useRef(null);
+  const vampRef = useRef(null);
   const startX = useRef(0);
+  const xRef = useRef(0);
+  const draggingRef = useRef(false);
+  const animatingRef = useRef(false);
   const onToken = useCallback((t) => setTsToken(t), []);
 
   async function load() {
@@ -60,63 +66,117 @@ export default function Swipe({ onNeedLogin }) {
 
   const current = queue?.[si];
   const coin = current?.coins?.[ci];
+  const nextCoin = current?.coins?.[ci + 1] ?? queue?.[si + 1]?.coins?.[0] ?? null;
 
   function nextSet() { setCi(0); setSi((i) => i + 1); }
 
-  function swipeLeft() {
-    if (!coin || busy) return;
+  function advanceLeft() {
     if (ci + 1 < current.coins.length) setCi(ci + 1);
     else nextSet(); // dismissed everything: no vote on this set
   }
 
-  async function swipeRight() {
-    if (!coin || busy) return;
-    setError(null);
-    if (!session) return onNeedLogin();
-    const firstVote = !profile?.human_verified_at;
-    if (firstVote && !tsToken) return setNeedTurnstile(true);
-
+  async function castVote(token) {
     setBusy(true);
     const { data, error: fnErr } = await supabase.functions.invoke('cast-vote', {
-      body: { vamp_set_id: current.set.id, coin_mint: coin.mint, turnstile_token: tsToken ?? undefined },
+      body: { vamp_set_id: current.set.id, coin_mint: coin.mint, turnstile_token: token ?? undefined },
     });
     setBusy(false);
     setNeedTurnstile(false);
     if (fnErr) {
       let msg = fnErr.message;
       try { const ctx = await fnErr.context?.json?.(); if (ctx?.error) msg = ctx.error; } catch {}
-      if (msg === 'already_voted') { nextSet(); return; }
-      setError(msg);
+      if (msg !== 'already_voted') setError(msg);
       return;
     }
-    if (firstVote) refreshProfile();
+    if (!profile?.human_verified_at) refreshProfile();
     if (data?.declared) setDeclared(coin);
-    nextSet();
   }
 
-  // drag mechanics
+  // ---------- animation helpers (direct DOM writes: no re-render per frame) ----------
+  function setDragTransform(x) {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.transition = 'none';
+    el.style.transform = `translate(${x}px, ${Math.abs(x) * 0.05}px) rotate(${x / 20}deg)`;
+    if (runnerRef.current) runnerRef.current.style.opacity = Math.max(0, Math.min(1, x / THRESHOLD));
+    if (vampRef.current) vampRef.current.style.opacity = Math.max(0, Math.min(1, -x / THRESHOLD));
+  }
+
+  function snapBack() {
+    const el = cardRef.current;
+    if (!el) return;
+    el.style.transition = 'transform 0.45s cubic-bezier(0.18, 1.4, 0.35, 1)';
+    el.style.transform = 'translate(0px, 0px) rotate(0deg)';
+    if (runnerRef.current) runnerRef.current.style.opacity = 0;
+    if (vampRef.current) vampRef.current.style.opacity = 0;
+  }
+
+  function flyOut(dir, after) {
+    const el = cardRef.current;
+    if (!el || animatingRef.current) return;
+    animatingRef.current = true;
+    const stamp = dir > 0 ? runnerRef.current : vampRef.current;
+    if (stamp) stamp.style.opacity = 1;
+    el.style.transition = 'transform 0.34s cubic-bezier(0.2, 0.65, 0.3, 1), opacity 0.34s ease-out';
+    el.style.transform = `translate(${dir * (window.innerWidth * 0.7 + 200)}px, 60px) rotate(${dir * 26}deg)`;
+    el.style.opacity = '0';
+    setTimeout(() => {
+      animatingRef.current = false;
+      after();
+    }, 320);
+  }
+
+  // ---------- decisions ----------
+  function decideLeft() {
+    if (!coin || busy || animatingRef.current) return;
+    flyOut(-1, advanceLeft);
+  }
+
+  function decideRight() {
+    if (!coin || busy || animatingRef.current) return;
+    setError(null);
+    if (!session) { snapBack(); return onNeedLogin(); }
+    const firstVote = !profile?.human_verified_at;
+    if (firstVote && !tsToken) { snapBack(); return setNeedTurnstile(true); }
+    const token = tsToken;
+    flyOut(1, () => { castVote(token); nextSet(); });
+  }
+
+  function voteFromModal() {
+    if (!coin || busy) return;
+    const token = tsToken;
+    setNeedTurnstile(false);
+    flyOut(1, () => { castVote(token); nextSet(); });
+  }
+
+  // ---------- pointer mechanics ----------
   function onPointerDown(e) {
+    if (animatingRef.current) return;
     startX.current = e.clientX;
-    setDrag({ x: 0, active: true });
+    xRef.current = 0;
+    draggingRef.current = true;
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
   function onPointerMove(e) {
-    if (!drag.active) return;
-    setDrag({ x: e.clientX - startX.current, active: true });
+    if (!draggingRef.current || animatingRef.current) return;
+    xRef.current = e.clientX - startX.current;
+    setDragTransform(xRef.current);
   }
   function onPointerUp() {
-    if (!drag.active) return;
-    const x = drag.x;
-    setDrag({ x: 0, active: false });
-    if (x <= -THRESHOLD) swipeLeft();
-    else if (x >= THRESHOLD) swipeRight();
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    const x = xRef.current;
+    xRef.current = 0;
+    if (x <= -THRESHOLD) decideLeft();
+    else if (x >= THRESHOLD) decideRight();
+    else snapBack();
   }
 
   // keyboard
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'ArrowLeft') swipeLeft();
-      if (e.key === 'ArrowRight') swipeRight();
+      if (e.key === 'ArrowLeft') decideLeft();
+      if (e.key === 'ArrowRight') decideRight();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -135,7 +195,6 @@ export default function Swipe({ onNeedLogin }) {
     );
   }
 
-  const rot = drag.x / 22;
   const mcap = coin.last_market_cap_sol ?? coin.market_cap_sol_at_launch;
 
   return (
@@ -148,20 +207,23 @@ export default function Swipe({ onNeedLogin }) {
       <p className="sub">Swipe right to back it as the runner (that's your one vote for this set). Swipe left to call it a vamp.</p>
 
       <div className="swipe-stage">
-        {current.coins[ci + 1] && <div className="swipe-card behind" />}
+        {nextCoin && (
+          <div className="swipe-card behind">
+            <div className="swipe-name">{nextCoin.name}</div>
+            <div className="swipe-ticker">{fmtTick(nextCoin.symbol)}</div>
+          </div>
+        )}
         <div
-          className="swipe-card"
-          style={{
-            transform: `translateX(${drag.x}px) rotate(${rot}deg)`,
-            transition: drag.active ? 'none' : 'transform 0.3s cubic-bezier(0.25,0.1,0.25,1)',
-          }}
+          key={coin.mint}
+          ref={cardRef}
+          className="swipe-card top"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
         >
-          <div className="stamp runner" style={{ opacity: Math.max(0, Math.min(1, drag.x / THRESHOLD)) }}>RUNNER</div>
-          <div className="stamp vamp" style={{ opacity: Math.max(0, Math.min(1, -drag.x / THRESHOLD)) }}>VAMP</div>
+          <div ref={runnerRef} className="stamp runner" style={{ opacity: 0 }}>RUNNER</div>
+          <div ref={vampRef} className="stamp vamp" style={{ opacity: 0 }}>VAMP</div>
           <div className="swipe-name">{coin.name}</div>
           <div className="swipe-ticker">{fmtTick(coin.symbol)}</div>
           <div className="swipe-facts">
@@ -175,8 +237,12 @@ export default function Swipe({ onNeedLogin }) {
       </div>
 
       <div className="swipe-actions">
-        <button className="swipe-btn no" onClick={swipeLeft} disabled={busy} aria-label="Vamp">✕</button>
-        <button className="swipe-btn yes" onClick={swipeRight} disabled={busy} aria-label="Runner">⚔</button>
+        <button className="swipe-btn no" onClick={decideLeft} disabled={busy} aria-label="Call it a vamp">
+          <b>✕</b><span>VAMP</span>
+        </button>
+        <button className="swipe-btn yes" onClick={decideRight} disabled={busy} aria-label="Back as the runner">
+          <b>⚔</b><span>RUNNER</span>
+        </button>
       </div>
       {error && <div className="err" style={{ textAlign: 'center' }}>{error}</div>}
 
@@ -186,7 +252,7 @@ export default function Swipe({ onNeedLogin }) {
             <h2>Prove you're human</h2>
             <p className="fine">One quick check before your first vote. Never again after this.</p>
             <Turnstile onToken={onToken} />
-            <button className="btn" disabled={!tsToken || busy} onClick={swipeRight}>
+            <button className="btn" disabled={!tsToken || busy} onClick={voteFromModal}>
               {busy ? 'Casting…' : 'Cast my vote'}
             </button>
           </div>

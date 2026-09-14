@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
+import Turnstile from '../lib/Turnstile';
 import { fmtTick, fmtName, fmtCap, timeAgo } from './Home';
 
 const SUPPLY = 1e9; // both pump.fun and RH launchpad tokens mint 1B
@@ -262,7 +264,7 @@ function TwinChart({ solMint, rhMint, solUsd }) {
   );
 }
 
-function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, viewHref, viewLabel, setId, pulling }) {
+function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, viewHref, viewLabel, setId, pulling, status, myVote, busy, onVote }) {
   return (
     <div className={`twin-card ${side} ${pulling ? 'pulling' : ''}`}>
       <div className="twin-card-head">
@@ -289,7 +291,17 @@ function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, view
         {coin?.mint && <CopyBtn text={coin.mint} />}
       </div>
       <div className="twin-actions">
-        <Link to={`/set/${setId}`}><button className="btn small">VOTE ON THIS SET</button></Link>
+        {myVote != null ? (
+          <button className={`btn small ${myVote === coin?.mint ? 'success' : 'ghost'}`} disabled>
+            {myVote === coin?.mint ? 'VOTED ✓ YOUR PICK' : 'VOTED IN THIS SET'}
+          </button>
+        ) : status === 'voting' && coin?.mint ? (
+          <button className="btn small" disabled={busy} onClick={() => onVote(setId, coin.mint)}>
+            {busy ? 'CASTING…' : 'VOTE ON THIS SET'}
+          </button>
+        ) : (
+          <Link to={`/set/${setId}`}><button className="btn ghost small">VOTING NOT OPEN · VIEW SET</button></Link>
+        )}
         {coin?.mint && (
           <a href={viewHref} target="_blank" rel="noopener noreferrer">
             <button className="btn ghost small">{viewLabel} ↗</button>
@@ -314,7 +326,13 @@ function actScore(t) {
   );
 }
 
-export default function Twins() {
+export default function Twins({ onNeedLogin }) {
+  const { session, profile, refreshProfile } = useAuth();
+  const [myVotes, setMyVotes] = useState({});      // set_id -> coin_mint
+  const [busySet, setBusySet] = useState(null);
+  const [voteErr, setVoteErr] = useState(null);    // { setId, msg }
+  const [pendingVote, setPendingVote] = useState(null); // { setId, mint }
+  const [tsToken, setTsToken] = useState(null);
   const [pairs, setPairs] = useState(null);
   const [leads, setLeads] = useState({});   // set_id -> lead coin row
   const [solUsd, setSolUsd] = useState(null);
@@ -346,6 +364,16 @@ export default function Twins() {
           if (!m[c.vamp_set_id] || v > m[c.vamp_set_id].mcap) m[c.vamp_set_id] = { ...c, mcap: v };
         }
         if (!dead) setLeads(m);
+        if (session) {
+          const { data: mine } = await supabase
+            .from('votes').select('vamp_set_id, coin_mint')
+            .in('vamp_set_id', ids).eq('voter_id', session.user.id);
+          if (!dead) {
+            const mv = {};
+            for (const v of mine ?? []) mv[v.vamp_set_id] = v.coin_mint;
+            setMyVotes(mv);
+          }
+        }
       }
       try {
         const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
@@ -356,7 +384,29 @@ export default function Twins() {
     load();
     const t = setInterval(load, 30000);
     return () => { dead = true; clearInterval(t); };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
+
+  async function vote(setId, mint, token = tsToken) {
+    setVoteErr(null);
+    if (!session) return onNeedLogin?.();
+    const firstVote = !profile?.human_verified_at;
+    if (firstVote && !token) { setPendingVote({ setId, mint }); return; }
+    setBusySet(setId);
+    const { error: fnErr } = await supabase.functions.invoke('cast-vote', {
+      body: { vamp_set_id: setId, coin_mint: mint, turnstile_token: token ?? undefined },
+    });
+    setBusySet(null);
+    setPendingVote(null);
+    if (fnErr) {
+      let msg = fnErr.message;
+      try { const ctx = await fnErr.context?.json?.(); if (ctx?.error) msg = ctx.error; } catch {}
+      setVoteErr({ setId, msg });
+      return;
+    }
+    if (firstVote) refreshProfile();
+    setMyVotes((m) => ({ ...m, [setId]: mint }));
+  }
 
   // realtime: lead-coin mcap updates flow straight into cards + gauge
   const leadKey = Object.values(leads).map((c) => c.mint).sort().join(',');
@@ -430,6 +480,10 @@ export default function Twins() {
                   viewLabel="PUMP.FUN"
                   setId={t.sol_id}
                   pulling={leader === 'sol'}
+                  status={t.sol_status}
+                  myVote={myVotes[t.sol_id]}
+                  busy={busySet === t.sol_id}
+                  onVote={vote}
                 />
                 <div className="twin-gauge">
                   <div className="mono top">
@@ -461,8 +515,15 @@ export default function Twins() {
                   viewLabel="DEXSCREENER"
                   setId={t.rh_id}
                   pulling={leader === 'rh'}
+                  status={t.rh_status}
+                  myVote={myVotes[t.rh_id]}
+                  busy={busySet === t.rh_id}
+                  onVote={vote}
                 />
               </div>
+              {voteErr && (voteErr.setId === t.sol_id || voteErr.setId === t.rh_id) && (
+                <div className="mono" style={{ color: 'var(--red)', fontSize: 11, marginTop: 8 }}>{voteErr.msg}</div>
+              )}
               <div className={`twin-pressure mono ${leader ?? 'flat'}`} style={{ '--spd': `${spd}s` }}>
                 <span className="who sol-side">SOL</span>
                 <div className="flow"><span className="chev">{'\u276f'.repeat(90)}</span><span className="chev">{'\u276f'.repeat(90)}</span></div>
@@ -502,6 +563,19 @@ export default function Twins() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {pendingVote && (
+          <div className="modal-bg" onClick={() => setPendingVote(null)}>
+            <div className="modal" onClick={(e) => e.stopPropagation()}>
+              <h2>PROVE YOU'RE HUMAN</h2>
+              <p className="fine">One quick check before your first vote. Never again after this.</p>
+              <Turnstile onToken={setTsToken} />
+              <button className="btn" disabled={!tsToken || busySet != null} onClick={() => vote(pendingVote.setId, pendingVote.mint, tsToken)}>
+                {busySet != null ? 'CASTING…' : 'CAST MY VOTE'}
+              </button>
             </div>
           </div>
         )}

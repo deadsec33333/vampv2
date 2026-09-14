@@ -172,7 +172,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/terminal" element={<Home />} />
-        <Route path="/twins" element={<Twins />} />
+        <Route path="/twins" element={<Twins onNeedLogin={() => setShowLogin(true)} />} />
         <Route path="/auction" element={<Auction onNeedLogin={() => setShowLogin(true)} />} />
         <Route path="/set/:id" element={<SetDetail onNeedLogin={() => setShowLogin(true)} />} />
         <Route path="/swipe" element={<Swipe onNeedLogin={() => setShowLogin(true)} />} />

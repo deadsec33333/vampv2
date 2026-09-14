@@ -214,7 +214,14 @@ a.trow:hover, .trow.hover { background: var(--panel3); }
   cursor: grab; user-select: none; touch-action: none; will-change: transform;
 }
 .swipe-card:active { cursor: grabbing; }
-.swipe-card.behind { transform: scale(0.95) translateY(12px); background: var(--panel); z-index: -1; }
+.swipe-card.behind { transform: scale(0.95) translateY(12px); background: var(--panel); z-index: -1; opacity: 0.45; pointer-events: none; }
+.swipe-card.behind .swipe-name, .swipe-card.behind .swipe-ticker { filter: blur(1px); }
+.swipe-card.top { animation: swipe-enter 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.15); }
+@keyframes swipe-enter {
+  from { transform: scale(0.95) translateY(12px); opacity: 0.5; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .swipe-card.top { animation: none; } }
 .swipe-name { font-size: 24px; font-weight: 700; line-height: 1.15; }
 .swipe-ticker { color: var(--red); font-weight: 600; font-family: 'IBM Plex Mono', monospace; margin-top: 6px; }
 .swipe-facts { margin-top: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
@@ -227,14 +234,26 @@ a.trow:hover, .trow.hover { background: var(--panel3); }
 }
 .stamp.runner { left: 20px; color: var(--green); border-color: var(--green); transform: rotate(-10deg); }
 .stamp.vamp { right: 20px; color: var(--red); border-color: var(--red); transform: rotate(10deg); }
-.swipe-actions { display: flex; justify-content: center; gap: 18px; margin-top: 22px; }
+.swipe-actions { display: flex; justify-content: center; gap: 26px; margin-top: 24px; }
 .swipe-btn {
-  width: 58px; height: 58px; border-radius: 4px; font-size: 22px; cursor: pointer;
-  background: var(--panel3); color: var(--text); border: 1px solid var(--hair);
+  width: 74px; height: 74px; border-radius: 50%; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  font-family: 'IBM Plex Mono', monospace;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.15s ease;
 }
+.swipe-btn b { font-size: 24px; line-height: 1; font-weight: 600; }
+.swipe-btn span { font-size: 8px; letter-spacing: 0.14em; font-weight: 600; }
 .swipe-btn:disabled { opacity: 0.35; }
-.swipe-btn.yes { background: var(--red); border-color: transparent; color: #fff; }
-.swipe-btn.yes:hover { background: #ff5a6e; }
+.swipe-btn:hover:not(:disabled) { transform: scale(1.1); }
+.swipe-btn:active:not(:disabled) { transform: scale(0.94); }
+.swipe-btn.no {
+  background: rgba(246,70,93,0.10); color: var(--red); border: 2px solid rgba(246,70,93,0.55);
+}
+.swipe-btn.no:hover:not(:disabled) { background: rgba(246,70,93,0.2); box-shadow: 0 0 26px rgba(246,70,93,0.35); }
+.swipe-btn.yes {
+  background: rgba(22,199,132,0.12); color: var(--green); border: 2px solid rgba(22,199,132,0.6);
+}
+.swipe-btn.yes:hover:not(:disabled) { background: rgba(22,199,132,0.22); box-shadow: 0 0 26px rgba(22,199,132,0.4); }
 
 /* ---------- generic ---------- */
 h1.page { font-size: 20px; font-weight: 700; letter-spacing: 0.02em; margin: 18px 16px 4px; }
@@ -465,3 +484,4 @@ p.sub b { color: var(--text); }
 @keyframes pull-sol { 0%, 100% { box-shadow: 0 0 0 rgba(246,70,93,0); } 50% { box-shadow: 0 0 36px rgba(246,70,93,0.30); } }
 @keyframes pull-rh { 0%, 100% { box-shadow: 0 0 0 rgba(240,185,11,0); } 50% { box-shadow: 0 0 36px rgba(240,185,11,0.30); } }
 @media (prefers-reduced-motion: reduce) { .twin-pressure .chev, .twin-card.pulling { animation: none; } }
+.btn.success { background: rgba(22,199,132,0.16); color: var(--green); border: 1px solid rgba(22,199,132,0.4); cursor: default; }
