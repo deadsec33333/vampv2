@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -39,38 +39,75 @@ function CopyBtn({ text }) {
   );
 }
 
-const RANGES = { '1H': { hours: 1, bucket: 30 }, '6H': { hours: 6, bucket: 180 }, '24H': { hours: 24, bucket: 600 } };
+// A number that flashes green/red when it moves.
+function LiveUsd({ value, className = '' }) {
+  const prev = useRef(value);
+  const [flash, setFlash] = useState('');
+  useEffect(() => {
+    if (prev.current != null && value != null && value !== prev.current) {
+      setFlash(value > prev.current ? 'flash-up' : 'flash-down');
+      const t = setTimeout(() => setFlash(''), 700);
+      prev.current = value;
+      return () => clearTimeout(t);
+    }
+    prev.current = value;
+  }, [value]);
+  return <span className={`${className} ${flash}`}>{fmtUsd(value)}</span>;
+}
+
+const RANGES = {
+  '15M': { ms: 15 * 60e3, bucket: 15 },
+  '1H': { ms: 3600e3, bucket: 30 },
+  '6H': { ms: 6 * 3600e3, bucket: 180 },
+  '24H': { ms: 24 * 3600e3, bucket: 600 },
+};
 
 function TwinChart({ solMint, rhMint, solUsd }) {
-  const [range, setRange] = useState('6H');
+  const [range, setRange] = useState('15M');
   const [rows, setRows] = useState(null);
+  const [hover, setHover] = useState(null); // fraction 0..1 across the plot
+  const bodyRef = useRef(null);
 
+  // initial + fallback load
   useEffect(() => {
     let dead = false;
     async function load() {
-      const { hours, bucket } = RANGES[range];
-      const since = new Date(Date.now() - hours * 3600 * 1000).toISOString();
+      const { ms, bucket } = RANGES[range];
+      const since = new Date(Date.now() - ms).toISOString();
       const { data } = await supabase.rpc('twin_ticks', { p_mints: [solMint, rhMint], p_since: since, p_bucket_sec: bucket });
       if (!dead) setRows(data ?? []);
     }
     load();
-    const t = setInterval(load, 30000);
+    const t = setInterval(load, 60000);
     return () => { dead = true; clearInterval(t); };
   }, [solMint, rhMint, range]);
 
+  // realtime: every new tick lands on the chart the second it's written
+  useEffect(() => {
+    const ch = supabase
+      .channel(`twin-ticks-${solMint.slice(0, 8)}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'price_ticks', filter: `mint=eq.${solMint}` },
+        (p) => setRows((r) => [...(r ?? []), { mint: p.new.mint, bucket: p.new.ts, mcap: p.new.mcap }]))
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'price_ticks', filter: `mint=eq.${rhMint}` },
+        (p) => setRows((r) => [...(r ?? []), { mint: p.new.mint, bucket: p.new.ts, mcap: p.new.mcap }]))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [solMint, rhMint]);
+
   const chart = useMemo(() => {
     if (!rows || !solUsd) return null;
+    const cutoff = Date.now() - RANGES[range].ms;
     const solRaw = new Map();
     const rhRaw = new Map();
     for (const r of rows) {
       const t = new Date(r.bucket).getTime();
+      if (t < cutoff) continue;
       if (r.mint === solMint) solRaw.set(t, Number(r.mcap) * solUsd);
       else if (r.mint === rhMint) rhRaw.set(t, Number(r.mcap));
     }
-    if (solRaw.size < 2 || rhRaw.size < 2) return { empty: true };
+    if (solRaw.size < 2 || rhRaw.size < 2) return { empty: true, have: solRaw.size + rhRaw.size };
 
     const times = [...new Set([...solRaw.keys(), ...rhRaw.keys()])].sort((a, b) => a - b);
-    // carry-forward align both series on the union timeline
     let s = null; let r = null;
     const pts = times.map((t) => {
       if (solRaw.has(t)) s = solRaw.get(t);
@@ -91,7 +128,6 @@ function TwinChart({ solMint, rhMint, solUsd }) {
     const solPath = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p.s).toFixed(1)}`).join('');
     const rhPath = pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.t).toFixed(1)},${Y(p.r).toFixed(1)}`).join('');
 
-    // fill between the lines, green while the spread stays inside 5%, red outside
     const bands = [];
     let run = null;
     const inside = (p) => Math.abs((p.r - p.s) / ((p.r + p.s) / 2)) <= 0.05;
@@ -118,8 +154,23 @@ function TwinChart({ solMint, rhMint, solUsd }) {
       return { x: X(t), label: new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) };
     });
     const last = pts[pts.length - 1];
-    return { solPath, rhPath, bandPolys, grid, xTicks, W, H, last, yLast: { s: Y(last.s), r: Y(last.r) } };
-  }, [rows, solUsd, solMint, rhMint]);
+    return { pts, X, Y, solPath, rhPath, bandPolys, grid, xTicks, W, H, PAD_L, PAD_R, last, lastXY: { x: X(last.t), ys: Y(last.s), yr: Y(last.r) } };
+  }, [rows, solUsd, solMint, rhMint, range]);
+
+  // crosshair: nearest point to the pointer
+  const hov = useMemo(() => {
+    if (!chart || chart.empty || hover == null) return null;
+    const tx = chart.PAD_L + hover * (chart.W - chart.PAD_L - chart.PAD_R);
+    let best = null;
+    for (const p of chart.pts) {
+      const d = Math.abs(chart.X(p.t) - tx);
+      if (!best || d < best.d) best = { d, p };
+    }
+    if (!best) return null;
+    const p = best.p;
+    const spread = ((p.r - p.s) / ((p.r + p.s) / 2)) * 100;
+    return { p, x: chart.X(p.t), ys: chart.Y(p.s), yr: chart.Y(p.r), spread };
+  }, [chart, hover]);
 
   return (
     <div className="twin-chart panel">
@@ -131,6 +182,7 @@ function TwinChart({ solMint, rhMint, solUsd }) {
           <span><i className="sw out" /> outside</span>
         </div>
         <div className="spacer" />
+        <span className="mono live-tag"><i />LIVE</span>
         <div className="chips">
           {Object.keys(RANGES).map((k) => (
             <button key={k} className={range === k ? 'on' : ''} onClick={() => setRange(k)}>{k}</button>
@@ -139,10 +191,21 @@ function TwinChart({ solMint, rhMint, solUsd }) {
       </div>
       {(!chart || chart.empty) ? (
         <div className="mono twin-chart-empty">
-          {rows === null ? 'LOADING…' : 'COLLECTING PRICE HISTORY — THE CHART DRAWS ITSELF AS LIVE TICKS ARRIVE'}
+          {rows === null ? 'LOADING…' : 'COLLECTING LIVE TICKS — THE CHART STARTS DRAWING WITHIN A MINUTE OF THE COLLECTOR RUNNING'}
         </div>
       ) : (
-        <div className="twin-chart-body">
+        <div
+          className="twin-chart-body"
+          ref={bodyRef}
+          onPointerMove={(e) => {
+            const el = bodyRef.current;
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            const innerW = r.width - 62 - 4; // matches CSS padding
+            setHover(Math.max(0, Math.min(1, (e.clientX - r.left - 4) / innerW)));
+          }}
+          onPointerLeave={() => setHover(null)}
+        >
           <svg viewBox={`0 0 ${chart.W} ${chart.H}`} preserveAspectRatio="none">
             {chart.grid.map((g, i) => (
               <line key={i} x1="0" x2={chart.W} y1={g.y} y2={g.y} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
@@ -152,6 +215,18 @@ function TwinChart({ solMint, rhMint, solUsd }) {
             ))}
             <path d={chart.solPath} fill="none" stroke="#f6465d" strokeWidth="2" vectorEffect="non-scaling-stroke" />
             <path d={chart.rhPath} fill="none" stroke="#f0b90b" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            {/* live edge pulses */}
+            <circle className="pulse-ring sol" cx={chart.lastXY.x} cy={chart.lastXY.ys} r="5" />
+            <circle cx={chart.lastXY.x} cy={chart.lastXY.ys} r="3" fill="#f6465d" />
+            <circle className="pulse-ring rh" cx={chart.lastXY.x} cy={chart.lastXY.yr} r="5" />
+            <circle cx={chart.lastXY.x} cy={chart.lastXY.yr} r="3" fill="#f0b90b" />
+            {hov && (
+              <g>
+                <line x1={hov.x} x2={hov.x} y1="0" y2={chart.H} stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="3 3" />
+                <circle cx={hov.x} cy={hov.ys} r="4" fill="#f6465d" stroke="#0b0d11" strokeWidth="1.5" />
+                <circle cx={hov.x} cy={hov.yr} r="4" fill="#f0b90b" stroke="#0b0d11" strokeWidth="1.5" />
+              </g>
+            )}
           </svg>
           <div className="ylabels mono">
             {chart.grid.map((g, i) => (
@@ -164,9 +239,22 @@ function TwinChart({ solMint, rhMint, solUsd }) {
             ))}
           </div>
           <div className="endtags mono">
-            <span className="rh" style={{ top: `${(chart.yLast.r / chart.H) * 100}%` }}>{fmtUsd(chart.last.r)}</span>
-            <span className="sol" style={{ top: `${(chart.yLast.s / chart.H) * 100}%` }}>{fmtUsd(chart.last.s)}</span>
+            <span className="rh" style={{ top: `${(chart.lastXY.yr / chart.H) * 100}%` }}>{fmtUsd(chart.last.r)}</span>
+            <span className="sol" style={{ top: `${(chart.lastXY.ys / chart.H) * 100}%` }}>{fmtUsd(chart.last.s)}</span>
           </div>
+          {hov && (
+            <div
+              className="twin-tip mono"
+              style={{ left: `${(hov.x / chart.W) * 100}%`, transform: `translateX(${hov.x > chart.W * 0.7 ? '-108%' : '8px'})` }}
+            >
+              <div className="t">{new Date(hov.p.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}</div>
+              <div><i className="sw sol" /> {fmtUsd(hov.p.s)}</div>
+              <div><i className="sw rh" /> {fmtUsd(hov.p.r)}</div>
+              <div className={Math.abs(hov.spread) <= 5 ? 'up' : 'down'}>
+                SPREAD {hov.spread >= 0 ? '+' : ''}{hov.spread.toFixed(1)}%
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -183,7 +271,7 @@ function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, view
         <span className="mono src">{srcLabel}</span>
       </div>
       <div className="mono k">MARKET CAP</div>
-      <div className="mono big">{fmtUsd(mcapUsd)}</div>
+      <div className="mono big"><LiveUsd value={mcapUsd} /></div>
       <div className="twin-stats">
         <div>
           <div className="mono k">PRICE</div>
@@ -242,9 +330,31 @@ export default function Twins() {
       } catch { /* keep last known */ }
     }
     load();
-    const t = setInterval(load, 20000);
+    const t = setInterval(load, 30000);
     return () => { dead = true; clearInterval(t); };
   }, []);
+
+  // realtime: lead-coin mcap updates flow straight into cards + gauge
+  const leadKey = Object.values(leads).map((c) => c.mint).sort().join(',');
+  useEffect(() => {
+    if (!leadKey) return;
+    const mints = leadKey.split(',');
+    let ch = supabase.channel('twin-leads');
+    for (const mint of mints) {
+      ch = ch.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'coins', filter: `mint=eq.${mint}` }, (p) => {
+        const v = Number(p.new.last_market_cap_sol ?? 0);
+        if (!(v > 0)) return;
+        setLeads((m) => {
+          const id = p.new.vamp_set_id;
+          if (!m[id] || m[id].mint !== p.new.mint) return m;
+          return { ...m, [id]: { ...m[id], mcap: v } };
+        });
+      });
+    }
+    ch.subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadKey]);
 
   return (
     <div className="wrap">
@@ -270,7 +380,6 @@ export default function Twins() {
           let div = null;
           if (solMcapUsd > 0 && rhMcapUsd > 0) div = ((rhMcapUsd - solMcapUsd) / ((rhMcapUsd + solMcapUsd) / 2)) * 100;
           const inBand = div != null && Math.abs(div) <= 5;
-          // marker position: divergence clamped to ±20% mapped onto the track
           const markerPct = div == null ? 50 : 50 + Math.max(-20, Math.min(20, div)) * 2.25;
           return (
             <div key={`${t.sol_id}-${t.rh_id}`} className="twin-mod">
@@ -295,7 +404,7 @@ export default function Twins() {
                 <div className="twin-gauge">
                   <div className="mono top">
                     <div className="k">SOL</div>
-                    <div className="v">{fmtUsd(solMcapUsd)}</div>
+                    <div className="v"><LiveUsd value={solMcapUsd} /></div>
                   </div>
                   <div className="track">
                     <div className="band" />
@@ -303,7 +412,7 @@ export default function Twins() {
                   </div>
                   <div className="mono bot">
                     <div className="k">RH</div>
-                    <div className="v">{fmtUsd(rhMcapUsd)}</div>
+                    <div className="v"><LiveUsd value={rhMcapUsd} /></div>
                   </div>
                   <div className={`mono verdict ${div == null ? '' : inBand ? 'up' : 'down'}`}>
                     {div == null ? 'AWAITING PRICES'
