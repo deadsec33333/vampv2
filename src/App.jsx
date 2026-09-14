@@ -109,7 +109,7 @@ export default function App() {
     <>
       <div className="topbar">
         <NavLink to="/" className="brand">
-          <span className="block" />
+          <img src="/logo.png" alt="Vamp" style={{ width: 28, height: 28, borderRadius: '50%' }} />
           <span className="word">VAMP</span>
           <span className="tag">TERMINAL</span>
         </NavLink>
@@ -128,6 +128,18 @@ export default function App() {
           {stats.activeSets != null && <div><span className="k">ACTIVE SETS </span>{stats.activeSets}</div>}
         </div>
         <div className="spacer" />
+        <a
+          href="https://x.com/vamppro"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Vamp on X"
+          style={{ display: 'flex', alignItems: 'center', color: 'var(--dim)', padding: '6px 4px' }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M2.5 2.5 L13.5 13.5" />
+            <path d="M13.5 2.5 L2.5 13.5" />
+          </svg>
+        </a>
         {session ? (
           <>
             <span className="mono" style={{ fontSize: 11, color: 'var(--dim)' }}>{profile?.username ?? '…'}</span>
