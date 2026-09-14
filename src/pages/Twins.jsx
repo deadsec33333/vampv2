@@ -262,9 +262,9 @@ function TwinChart({ solMint, rhMint, solUsd }) {
   );
 }
 
-function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, viewHref, viewLabel, setId }) {
+function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, viewHref, viewLabel, setId, pulling }) {
   return (
-    <div className={`twin-card ${side}`}>
+    <div className={`twin-card ${side} ${pulling ? 'pulling' : ''}`}>
       <div className="twin-card-head">
         <span className={`dot ${side}`} />
         <b>{chainLabel}</b>
@@ -406,6 +406,8 @@ export default function Twins() {
           let div = null;
           if (solMcapUsd > 0 && rhMcapUsd > 0) div = ((rhMcapUsd - solMcapUsd) / ((rhMcapUsd + solMcapUsd) / 2)) * 100;
           const inBand = div != null && Math.abs(div) <= 5;
+          const leader = div == null || inBand ? null : div > 0 ? 'rh' : 'sol';
+          const spd = div == null ? 5 : Math.max(0.7, 3.5 - Math.min(25, Math.abs(div)) * 0.11);
           const markerPct = div == null ? 50 : 50 + Math.max(-20, Math.min(20, div)) * 2.25;
           return (
             <div key={`${t.sol_id}-${t.rh_id}`} className="twin-mod">
@@ -427,6 +429,7 @@ export default function Twins() {
                   viewHref={sol ? `https://pump.fun/coin/${sol.mint}` : '#'}
                   viewLabel="PUMP.FUN"
                   setId={t.sol_id}
+                  pulling={leader === 'sol'}
                 />
                 <div className="twin-gauge">
                   <div className="mono top">
@@ -457,7 +460,18 @@ export default function Twins() {
                   viewHref={rh ? `https://dexscreener.com/search?q=${rh.mint}` : '#'}
                   viewLabel="DEXSCREENER"
                   setId={t.rh_id}
+                  pulling={leader === 'rh'}
                 />
+              </div>
+              <div className={`twin-pressure mono ${leader ?? 'flat'}`} style={{ '--spd': `${spd}s` }}>
+                <span className="who sol-side">SOL</span>
+                <div className="flow"><span className="chev">{'\u276f'.repeat(90)}</span><span className="chev">{'\u276f'.repeat(90)}</span></div>
+                <span className="who rh-side">RH</span>
+                <span className="note">
+                  {div == null ? 'AWAITING PRICES'
+                    : leader == null ? 'BALANCED'
+                    : leader === 'rh' ? `RH PULLING +${div.toFixed(1)}%` : `SOL PULLING +${Math.abs(div).toFixed(1)}%`}
+                </span>
               </div>
               {sol && rh && <TwinChart solMint={sol.mint} rhMint={rh.mint} solUsd={solUsd} />}
             </div>
