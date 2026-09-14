@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { fmtTick, fmtName } from './Home';
+import { fmtTick, fmtName, fmtCap, timeAgo } from './Home';
 
 const SUPPLY = 1e9; // both pump.fun and RH launchpad tokens mint 1B
 
@@ -300,6 +300,20 @@ function ChainCard({ side, chainLabel, srcLabel, coin, mcapUsd, nativeLine, view
   );
 }
 
+// A pair is LIVE when both chains have a fresh price and real size behind it.
+const FRESH_MS = 45 * 60 * 1000;
+function isLive(t) {
+  const fresh = (u) => u && Date.now() - new Date(u).getTime() < FRESH_MS;
+  return fresh(t.sol_upd) && fresh(t.rh_upd) && Number(t.sol_mcap) >= 25 && Number(t.rh_mcap) >= 10000;
+}
+
+function actScore(t) {
+  return Math.max(
+    ...[t.sol_upd, t.rh_upd, t.sol_last, t.rh_last].filter(Boolean).map((x) => new Date(x).getTime()),
+    0,
+  );
+}
+
 export default function Twins() {
   const [pairs, setPairs] = useState(null);
   const [leads, setLeads] = useState({});   // set_id -> lead coin row
@@ -308,10 +322,19 @@ export default function Twins() {
   useEffect(() => {
     let dead = false;
     async function load() {
-      const { data: tw } = await supabase.from('twin_sets_view').select('*').limit(20);
+      const { data: all } = await supabase.from('twin_pairs_full').select('*').limit(200);
       if (dead) return;
-      setPairs(tw ?? []);
-      const ids = (tw ?? []).flatMap((t) => [t.sol_id, t.rh_id]);
+      // one pair per ticker: prefer the live one, then the most recently active
+      const byTick = new Map();
+      for (const t of all ?? []) {
+        const cur = byTick.get(t.ticker_norm);
+        if (!cur || (isLive(t) && !isLive(cur)) || (isLive(t) === isLive(cur) && actScore(t) > actScore(cur))) {
+          byTick.set(t.ticker_norm, t);
+        }
+      }
+      const dedup = [...byTick.values()].sort((a, b) => Number(isLive(b)) - Number(isLive(a)) || actScore(b) - actScore(a));
+      setPairs(dedup);
+      const ids = dedup.filter(isLive).flatMap((t) => [t.sol_id, t.rh_id]);
       if (ids.length) {
         const { data: coins } = await supabase
           .from('coins')
@@ -363,19 +386,25 @@ export default function Twins() {
         <h1 className="page">TWIN SETS</h1>
         <p className="sub">
           The same ticker trading on Solana and Robinhood Chain at the same time. Only live pairs
-          make it here — both sides must be actively priced and above dust level. Watch the two
+          make the full live view — both sides must be actively priced and above dust level. Watch the two
           market caps pressure each other in real time and vote on each chain's set.
         </p>
 
         {pairs === null && <p className="sub mono" style={{ padding: 16 }}>LOADING…</p>}
         {pairs !== null && pairs.length === 0 && (
           <p className="sub" style={{ padding: '4px 16px' }}>
-            No live twins right now. A pair appears the moment the same ticker is actively trading
-            on both chains at once — dead and dust pairs are filtered out on purpose.
+            No twins at all right now. The moment the same ticker exists on both chains within 48 hours,
+            the pair appears here.
+          </p>
+        )}
+        {pairs !== null && pairs.length > 0 && !pairs.some(isLive) && (
+          <p className="sub" style={{ padding: '4px 16px' }}>
+            No twin is fully live at this moment — the pairs below exist on both chains but are
+            waiting for real trading to pick up. The second one wakes up, it gets the full live view.
           </p>
         )}
 
-        {(pairs ?? []).map((t) => {
+        {(pairs ?? []).filter(isLive).slice(0, 6).map((t) => {
           const sol = leads[t.sol_id];
           const rh = leads[t.rh_id];
           const solMcapUsd = sol && solUsd ? sol.mcap * solUsd : null;
@@ -439,6 +468,34 @@ export default function Twins() {
             </div>
           );
         })}
+
+        {(pairs ?? []).some((t) => !isLive(t)) && (
+          <div className="twin-dormant">
+            <div className="section-head" style={{ paddingLeft: 0, paddingRight: 0 }}>
+              <h2>DORMANT TWINS</h2>
+              <span className="count">ON BOTH CHAINS · WAITING FOR TRADES</span>
+            </div>
+            <div className="mono">
+              {(pairs ?? []).filter((t) => !isLive(t)).slice(0, 10).map((t) => {
+                const act = actScore(t);
+                return (
+                  <div key={`${t.sol_id}-${t.rh_id}`} className="dorm-row">
+                    <span className="tk">${fmtTick(t.ticker_norm)}</span>
+                    <span className="nm">{fmtName(t.sol_name, 26)}</span>
+                    <Link to={`/set/${t.sol_id}`} className="side">
+                      SOL {t.sol_mcap != null ? `${Number(t.sol_mcap).toFixed(0)} SOL` : '—'}
+                    </Link>
+                    <Link to={`/set/${t.rh_id}`} className="side gold">
+                      RH {t.rh_mcap != null ? fmtCap('robinhood', Number(t.rh_mcap)) : 'PRE-MARKET'}
+                    </Link>
+                    <span className="age m-hide">{act ? `${timeAgo(new Date(act).toISOString())} AGO` : ''}</span>
+                    <span className="chip muted">DORMANT</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="foot">
           TWIN SETS COMPARE REAL MARKET DATA READ-ONLY · SOL CAPS CONVERTED TO USD AT THE LIVE SOL PRICE ·

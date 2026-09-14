@@ -432,3 +432,13 @@ p.sub b { color: var(--text); }
 .tick, .land-row .tk, .feed-row .s, .land-feed-row .s, .big-tick, .swipe-ticker, .twin-title .big {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 100%;
 }
+
+/* dormant twins list */
+.twin-dormant { margin: 6px 16px 0; }
+.dorm-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--hair2); font-size: 11px; color: var(--dim); }
+.dorm-row .tk { color: var(--red); font-weight: 600; width: 100px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dorm-row .nm { font-family: 'Space Grotesk', sans-serif; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dorm-row .side { color: var(--dim); }
+.dorm-row .side:hover { color: var(--text); }
+.dorm-row .side.gold { color: var(--gold); opacity: 0.75; }
+.dorm-row .age { color: var(--dim2); font-size: 10px; }
