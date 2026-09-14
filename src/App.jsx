@@ -66,8 +66,13 @@ function useTopStats() {
         const j = await r.json();
         sol = j?.solana ? { usd: j.solana.usd, chg: j.solana.usd_24h_change } : null;
         eth = j?.ethereum ? { usd: j.ethereum.usd, chg: j.ethereum.usd_24h_change } : null;
-      } catch { /* stats hidden when unreachable */ }
-      if (!dead) setStats({ launchesPerMin: launches != null ? (launches / 10).toFixed(1) : null, activeSets, sol, eth });
+      } catch { /* keep last known prices when unreachable */ }
+      if (!dead) setStats((prev) => ({
+        launchesPerMin: launches != null ? (launches / 10).toFixed(1) : null,
+        activeSets,
+        sol: sol ?? prev.sol,
+        eth: eth ?? prev.eth,
+      }));
     }
     load();
     const t = setInterval(load, 30000);
