@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { seasonKey, nextSeasonStart, countdownText } from '../lib/season';
-import { timeAgo, fmtCap } from './Home';
+import { timeAgo, fmtCap, fmtTick, fmtName } from './Home';
 
 function lagText(firstIso, iso) {
   const s = Math.max(0, (new Date(iso).getTime() - new Date(firstIso).getTime()) / 1000);
@@ -78,22 +78,22 @@ export default function Landing() {
   // Ticker strip events, derived from live data.
   const events = [];
   const joined = feed.find((c) => c.vamp_sets?.coin_count >= 2);
-  if (joined) events.push(<span key="j"><b>${joined.symbol}</b> just joined a swarm</span>);
+  if (joined) events.push(<span key="j"><b>${fmtTick(joined.symbol)}</b> just joined a swarm</span>);
   if (hot) events.push(
-    <span key="h"><b>${hot.ticker_norm}</b> {toGo != null && toGo > 0 ? `${toGo} votes from declaration` : `${hot.votes} votes and counting`}</span>
+    <span key="h"><b>${fmtTick(hot.ticker_norm)}</b> {toGo != null && toGo > 0 ? `${toGo} votes from declaration` : `${hot.votes} votes and counting`}</span>
   );
   const rhCoin = feed.find((c) => c.chain === 'robinhood');
-  if (rhCoin) events.push(<span key="r"><b className="gold">${rhCoin.symbol}</b> new on Robinhood Chain</span>);
+  if (rhCoin) events.push(<span key="r"><b className="gold">${fmtTick(rhCoin.symbol)}</b> new on Robinhood Chain</span>);
   if (settled?.coins?.symbol) {
     const p = Number(settled.pnl_pct ?? 0);
     events.push(
       <span key="s">treasury settled{' '}
-        <b className={p >= 0 ? 'up' : 'down'}>${settled.coins.symbol} {p >= 0 ? '+' : ''}{p.toFixed(0)}%</b>
+        <b className={p >= 0 ? 'up' : 'down'}>${fmtTick(settled.coins.symbol)} {p >= 0 ? '+' : ''}{p.toFixed(0)}%</b>
       </span>
     );
   }
   const biggest = [...rows].sort((a, b) => b.coin_count - a.coin_count)[0];
-  if (biggest && biggest.coin_count >= 3) events.push(<span key="b"><b>${biggest.ticker_norm}</b> swarm grew to {biggest.coin_count} coins</span>);
+  if (biggest && biggest.coin_count >= 3) events.push(<span key="b"><b>${fmtTick(biggest.ticker_norm)}</b> swarm grew to {biggest.coin_count} coins</span>);
   events.push(<span key="w">season {seasonKey()} resets in {countdownText(nextSeasonStart())}</span>);
 
   const listed = rows
@@ -132,7 +132,7 @@ export default function Landing() {
           <div className="hot-panel">
             <div className="hot-head">
               <span className="mono lbl">⦿ HOTTEST SWARM RIGHT NOW</span>
-              <Link to={`/set/${hot.id}`} className="mono name">${hot.ticker_norm} · {hot.display_name}</Link>
+              <Link to={`/set/${hot.id}`} className="mono name">${fmtTick(hot.ticker_norm)} · {fmtName(hot.display_name)}</Link>
               <div className="spacer" />
               <span className="mono meta">
                 {hot.votes} VOTES{toGo != null && <> · <span className="gold">{toGo > 0 ? `${toGo} TO DECLARATION` : 'DECLARATION IMMINENT'}</span></>}
@@ -145,7 +145,7 @@ export default function Landing() {
                 return (
                   <div key={c.mint} className={`hot-card ${isLead ? 'lead' : ''}`}>
                     <div className="row1">
-                      <div className="nm">{c.name || `$${c.symbol}`}</div>
+                      <div className="nm">{fmtName(c.name) || `$${fmtTick(c.symbol)}`}</div>
                       <div className={`mono pct ${isLead ? 'up' : ''}`}>{pct}%</div>
                     </div>
                     <div className="mono sub">
@@ -187,9 +187,9 @@ export default function Landing() {
           <div className="mono">
             {listed.map((s) => (
               <Link key={s.id} to={`/set/${s.id}`} className="land-row">
-                <span className={`tk ${s.status === 'declared' || (s.chain ?? 'solana') === 'robinhood' ? 'gold' : ''}`}>${s.ticker_norm}</span>
+                <span className={`tk ${s.status === 'declared' || (s.chain ?? 'solana') === 'robinhood' ? 'gold' : ''}`}>${fmtTick(s.ticker_norm)}</span>
                 <span className="nm">
-                  {s.display_name}
+                  {fmtName(s.display_name)}
                   {(s.chain ?? 'solana') === 'robinhood' && <span className="rh"> · RH</span>}
                 </span>
                 <span className="d m-hide">{s.coin_count} COINS</span>
@@ -215,8 +215,8 @@ export default function Landing() {
             {feed.map((c) => (
               <div key={c.mint} className="land-feed-row">
                 <span className="t">{new Date(c.launched_at).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' })}</span>
-                <span className={`s ${(c.chain ?? 'solana') === 'robinhood' ? 'gold' : ''}`}>${c.symbol}</span>
-                <span className="n">{c.name}</span>
+                <span className={`s ${(c.chain ?? 'solana') === 'robinhood' ? 'gold' : ''}`}>${fmtTick(c.symbol)}</span>
+                <span className="n">{fmtName(c.name)}</span>
                 {c.vamp_sets?.coin_count >= 2
                   ? <span className="chip voting">SET +{c.vamp_sets.coin_count}</span>
                   : <span className="t">{(c.chain ?? 'solana') === 'robinhood' && c.market_cap_sol_at_launch != null ? fmtCap('robinhood', c.market_cap_sol_at_launch) : ''}</span>}

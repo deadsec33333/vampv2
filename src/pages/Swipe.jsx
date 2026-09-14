@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { fmtTick } from './Home';
 import { useAuth } from '../lib/auth';
 import Turnstile from '../lib/Turnstile';
 
@@ -141,7 +142,7 @@ export default function Swipe({ onNeedLogin }) {
     <>
       <h1 className="page">Which is the real one?</h1>
       <p className="sub">
-        <span className="ticker">${current.set.ticker_norm}</span> · "{current.set.display_name}" ·
+        <span className="ticker">${fmtTick(current.set.ticker_norm)}</span> · "{current.set.display_name}" ·
         card {ci + 1} of {current.coins.length} · set {si + 1} of {queue.length}
       </p>
       <p className="sub">Swipe right to back it as the runner (that's your one vote for this set). Swipe left to call it a vamp.</p>
@@ -162,7 +163,7 @@ export default function Swipe({ onNeedLogin }) {
           <div className="stamp runner" style={{ opacity: Math.max(0, Math.min(1, drag.x / THRESHOLD)) }}>RUNNER</div>
           <div className="stamp vamp" style={{ opacity: Math.max(0, Math.min(1, -drag.x / THRESHOLD)) }}>VAMP</div>
           <div className="swipe-name">{coin.name}</div>
-          <div className="swipe-ticker">{coin.symbol}</div>
+          <div className="swipe-ticker">{fmtTick(coin.symbol)}</div>
           <div className="swipe-facts">
             <div><span>Launched</span>{timeAgo(coin.launched_at)}</div>
             <div><span>Mcap</span>{mcap != null ? `${Number(mcap).toFixed(1)} SOL` : '—'}</div>

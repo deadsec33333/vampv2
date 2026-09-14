@@ -427,3 +427,8 @@ p.sub b { color: var(--text); }
 .twin-tip .sw.sol { background: var(--red); }
 .twin-tip .sw.rh { background: var(--gold); }
 @media (prefers-reduced-motion: reduce) { .pulse-ring, .live-tag i { animation: none; } }
+
+/* clamp gag tickers so no row can stretch the layout */
+.tick, .land-row .tk, .feed-row .s, .land-feed-row .s, .big-tick, .swipe-ticker, .twin-title .big {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; max-width: 100%;
+}

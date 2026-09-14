@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { fmtTick, fmtName } from './Home';
 
 const SUPPLY = 1e9; // both pump.fun and RH launchpad tokens mint 1B
 
@@ -384,8 +385,8 @@ export default function Twins() {
           return (
             <div key={`${t.sol_id}-${t.rh_id}`} className="twin-mod">
               <div className="twin-title mono">
-                <span className="gold big">${t.ticker_norm}</span>
-                <span className="nm">{t.sol_name}</span>
+                <span className="gold big">${fmtTick(t.ticker_norm)}</span>
+                <span className="nm">{fmtName(t.sol_name)}</span>
                 <span className={`chip ${t.sol_status === 'declared' ? 'declared' : t.sol_status === 'voting' ? 'voting' : 'muted'}`}>SOL {t.sol_status.toUpperCase()}</span>
                 <span className={`chip ${t.rh_status === 'declared' ? 'declared' : t.rh_status === 'voting' ? 'voting' : 'muted'}`}>RH {t.rh_status.toUpperCase()}</span>
               </div>

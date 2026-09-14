@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import Turnstile from '../lib/Turnstile';
-import { timeAgo, fmtCap } from './Home';
+import {timeAgo, fmtCap, fmtTick } from './Home';
 
 export default function SetDetail({ onNeedLogin }) {
   const { id } = useParams();
@@ -86,7 +86,7 @@ export default function SetDetail({ onNeedLogin }) {
   return (
     <>
       <div className="set-head">
-        <div className="big-tick">${set.ticker_norm}</div>
+        <div className="big-tick">${fmtTick(set.ticker_norm)}</div>
         {(set.chain ?? 'solana') === 'robinhood' && <span className="chip muted">ROBINHOOD CHAIN</span>}
         <div>
           <h1>{set.display_name} cluster</h1>

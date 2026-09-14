@@ -12,6 +12,17 @@ export function timeAgo(iso) {
 
 const GRID = { gridTemplateColumns: '110px 1.6fr 52px 60px 56px 50px 84px 84px 90px' };
 
+// Some launches use absurdly long ticker text as a gag — clamp what we show.
+export function fmtTick(t) {
+  const s = String(t ?? '');
+  return s.length > 14 ? `${s.slice(0, 12)}…` : s;
+}
+
+export function fmtName(t, max = 40) {
+  const s = String(t ?? '');
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
 export function fmtCap(chain, v) {
   if (v == null || !isFinite(Number(v)) || Number(v) <= 0) return '—';
   const n = Number(v);
@@ -146,9 +157,9 @@ export default function Home() {
         {rows.map((s) => (
           <Link key={s.id} to={`/set/${s.id}`} className="trow" style={GRID}>
             <div className={`tick ${s.status === 'declared' ? 'won' : ''}`}>
-              ${s.ticker_norm}{(s.chain ?? 'solana') === 'robinhood' && <span className="chip muted" style={{ marginLeft: 6 }}>RH</span>}
+              ${fmtTick(s.ticker_norm)}{(s.chain ?? 'solana') === 'robinhood' && <span className="chip muted" style={{ marginLeft: 6 }}>RH</span>}
             </div>
-            <div className="name">{s.display_name}</div>
+            <div className="name">{fmtName(s.display_name)}</div>
             <div className="r">{s.coin_count}</div>
             <div className="r">{s.votes}</div>
             <div className={`r m-hide ${s.status === 'declared' ? 'gold' : 'up'}`}>{s.status === 'declared' ? 'WON' : s.lead != null ? `${s.lead}%` : '—'}</div>
@@ -180,9 +191,9 @@ export default function Home() {
           {feed.map((c) => (
             <div key={c.mint} className="feed-row">
               <span className="t">{new Date(c.launched_at).toLocaleTimeString([], { hour12: false })}</span>
-              <span className="s">${c.symbol}</span>
+              <span className="s">${fmtTick(c.symbol)}</span>
               {(c.chain ?? 'solana') === 'robinhood' && <span className="chip muted">RH</span>}
-              <span className="n">{c.name}</span>
+              <span className="n">{fmtName(c.name)}</span>
               {c.vamp_sets?.coin_count >= 2
                 ? <span className="chip voting">SET +{c.vamp_sets.coin_count}</span>
                 : <span className="t">{(c.chain ?? 'solana') === 'solana' && c.market_cap_sol_at_launch != null ? Number(c.market_cap_sol_at_launch).toFixed(1) : ''}</span>}
