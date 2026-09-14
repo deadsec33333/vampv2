@@ -362,14 +362,16 @@ export default function Twins() {
       <div className="main">
         <h1 className="page">TWIN SETS</h1>
         <p className="sub">
-          The same ticker alive on Solana and Robinhood Chain at the same time. Two births, one
-          narrative — watch the two market caps pressure each other in real time and vote on each chain's set.
+          The same ticker trading on Solana and Robinhood Chain at the same time. Only live pairs
+          make it here — both sides must be actively priced and above dust level. Watch the two
+          market caps pressure each other in real time and vote on each chain's set.
         </p>
 
         {pairs === null && <p className="sub mono" style={{ padding: 16 }}>LOADING…</p>}
         {pairs !== null && pairs.length === 0 && (
           <p className="sub" style={{ padding: '4px 16px' }}>
-            No twins right now. The moment the same ticker launches on both chains within 48 hours, the pair appears here.
+            No live twins right now. A pair appears the moment the same ticker is actively trading
+            on both chains at once — dead and dust pairs are filtered out on purpose.
           </p>
         )}
 
