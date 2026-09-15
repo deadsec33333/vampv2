@@ -55,9 +55,10 @@ function useTopStats() {
     let dead = false;
     async function load() {
       const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      const [{ count: launches }, { count: activeSets }] = await Promise.all([
+      const [{ count: launches }, { count: activeSets }, { data: caRow }] = await Promise.all([
         supabase.from('coins').select('mint', { count: 'exact', head: true }).gte('launched_at', tenMinAgo),
         supabase.from('vamp_sets').select('id', { count: 'exact', head: true }).eq('status', 'voting'),
+        supabase.from('game_config').select('value').eq('key', 'vamp_ca').maybeSingle(),
       ]);
       let sol = null;
       let eth = null;
@@ -72,6 +73,7 @@ function useTopStats() {
         activeSets,
         sol: sol ?? prev.sol,
         eth: eth ?? prev.eth,
+        ca: typeof caRow?.value === 'string' && caRow.value.length > 10 ? caRow.value : null,
       }));
     }
     load();
@@ -79,6 +81,24 @@ function useTopStats() {
     return () => { dead = true; clearInterval(t); };
   }, []);
   return stats;
+}
+
+function CaPill({ ca }) {
+  const [ok, setOk] = useState(false);
+  if (!ca) return null;
+  return (
+    <button
+      className="ca-pill mono"
+      title={ca}
+      onClick={() => {
+        try { navigator.clipboard.writeText(ca); setOk(true); setTimeout(() => setOk(false), 1200); } catch {}
+      }}
+    >
+      <span className="k">$VAMP CA</span>
+      <span className="a">{ca.slice(0, 6)}…{ca.slice(-6)}</span>
+      <span className="c">{ok ? 'COPIED ✓' : 'COPY'}</span>
+    </button>
+  );
 }
 
 const icons = {
@@ -136,6 +156,7 @@ export default function App() {
           {stats.activeSets != null && <div><span className="k">ACTIVE SETS </span>{stats.activeSets}</div>}
         </div>
         <div className="spacer" />
+        <CaPill ca={stats.ca} />
         <a
           href="https://x.com/vamppro"
           target="_blank"
