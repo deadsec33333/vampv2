@@ -63,7 +63,7 @@ export default function Rules() {
 
             <Section num="03" title="DECLARATION AND THE PAPER TREASURY">
               When one coin collects <Hl>{threshold} votes</Hl>, it's declared MAIN RUNNER and the
-              simulated treasury "buys" it: a <Hl>paper position of {size} SOL of fake money</Hl>,
+              simulated treasury "buys" it: a <Hl>simulated position of {size} SOL</Hl>,
               recorded at the coin's real market price at that moment. The position tracks real
               market data for <Hl>{hold} hours</Hl>, then settles at the last seen price.{' '}
               <Hl>No real trade ever occurs.</Hl> Nothing is bought, sold, or routed anywhere.

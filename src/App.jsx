@@ -34,7 +34,7 @@ function LoginModal({ onClose }) {
         <p className="fine">
           Your wallet signs one free message to prove it's yours. That's it.
           VAMP never asks for transactions, never touches your funds, and has
-          no buy buttons. The treasury here is fake money in a simulation game.
+          no buy buttons. The treasury is a simulation and never touches real funds.
         </p>
         <Turnstile onToken={onToken} />
         <button className="btn" disabled={busy} onClick={go}>

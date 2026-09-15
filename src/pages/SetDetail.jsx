@@ -203,7 +203,7 @@ export default function SetDetail({ onNeedLogin }) {
           <div className="coin">{declared.name} {declared.symbol}</div>
           <div className="paper">
             THE SIMULATED TREASURY OPENED A PAPER POSITION AT THE CURRENT MARKET PRICE.
-            FAKE MONEY, REAL SCOREBOARD. TAP TO CONTINUE.
+            SIMULATED POSITION, REAL SCOREBOARD. TAP TO CONTINUE.
           </div>
         </div>
       )}

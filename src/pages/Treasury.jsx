@@ -46,7 +46,7 @@ export default function Treasury() {
             <div className="v" style={{ color: seasonPnl >= 0 ? 'var(--green)' : 'var(--red)' }}>
               {seasonPnl >= 0 ? '+' : ''}{seasonPnl.toFixed(1)} <span style={{ fontSize: 13, color: 'var(--dim)' }}>SOL</span>
             </div>
-            <div className="sub">FAKE. ALL OF IT.</div>
+            <div className="sub">SEASON RUNNING TOTAL</div>
           </div>
           <div className="tile">
             <div className="k">CROWD WIN RATE</div>

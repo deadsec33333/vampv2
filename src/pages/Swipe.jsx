@@ -265,7 +265,7 @@ export default function Swipe({ onNeedLogin }) {
           <div className="coin">{declared.name} <span className="ticker">{declared.symbol}</span></div>
           <div className="paper">
             Your swipe tipped it. The simulated treasury just opened a PAPER position
-            at the current market price. Fake money, real scoreboard. Tap to continue.
+            at the current market price. Simulated position, real scoreboard. Tap to continue.
           </div>
         </div>
       )}
